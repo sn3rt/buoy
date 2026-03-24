@@ -1,0 +1,36 @@
+# dotfiles
+
+Terminal-focused dotfiles for multiple Linux machines.
+
+## Install
+
+Run:
+
+```bash
+./install.sh
+```
+
+This script creates symlinks from this repo into `$HOME` and moves any existing conflicting files into `~/.dotfiles-backup/<timestamp>/`.
+
+## Secrets
+
+Create `~/.config/secrets/.zshenv` (not tracked by git). Example:
+
+```bash
+cp .config/secrets/.zshenv.example ~/.config/secrets/.zshenv
+$EDITOR ~/.config/secrets/.zshenv
+```
+
+## OpenCode plugins
+
+Plugin manifests are tracked (`~/.config/opencode/package.json`, `~/.config/opencode/bun.lock`) but the actual install is local.
+Install/update plugins on a machine by running your package manager (e.g. `bun install`) inside `~/.config/opencode/`.
+
+## tmux
+
+Config lives in `~/.config/tmux/tmux.conf` and is also linked to `~/.tmux.conf` for compatibility.
+
+- `Alt+o`: open OpenCode in a floating popup (requires tmux `display-popup`, tmux >= 3.2)
+- In the popup: `Alt+c` hides the popup (OpenCode keeps running; press `Alt+o` again to reopen)
+- `Alt+e`: open Yazi in a floating popup
+- In the popup: `Alt+c` hides the popup (Yazi keeps running; press `Alt+e` again to reopen)

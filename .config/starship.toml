@@ -1,0 +1,43 @@
+# Add a blank line between shell prompts
+add_newline = false
+
+# Prompt format
+format = """
+[](#002b33)$username$hostname[](bg:#00353d fg:#002b33)$directory[](fg:#00353d bg:#009999)$git_branch$git_status[](fg:#009999 bg:none)$character
+"""
+
+# Username module
+[username]
+style_user = "bg:#002b33 fg:#009999"
+style_root = "bg:#00bcd4 fg:#ff0000"
+format = "[$user]($style)"
+show_always = true
+
+# Hostname module
+[hostname]
+style = "bg:#00bcd4 fg:#009999"
+format = "[@$hostname]($style)"
+disabled = false
+
+# Directory module
+[directory]
+style = "bg:#00353d fg:#009999"
+format = "[ $path ]($style)"
+truncation_length = 3
+
+# Git branch module
+[git_branch]
+style = "bg:#009999 fg:#002b33"
+format = "[ $branch ]($style)"
+
+# Git status module
+[git_status]
+style = "bg:#009999 fg:#002b33"
+format = "[$all_status]($style)"
+
+# Character at the end
+[character]
+success_symbol = "[❯](green)"
+error_symbol = "[❯](red)"
+vicmd_symbol = "[❮](blue)"
+
