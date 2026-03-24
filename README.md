@@ -30,7 +30,12 @@ Install/update plugins on a machine by running your package manager (e.g. `bun i
 
 Config lives in `~/.config/tmux/tmux.conf` and is also linked to `~/.tmux.conf` for compatibility.
 
+Zsh auto-starts/attaches tmux on terminal open: `tmux new-session -A -s tavern` (bypass with `NO_TMUX=1`).
+
 - `Alt+o`: open OpenCode in a floating popup (requires tmux `display-popup`, tmux >= 3.2)
 - In the popup: `Alt+c` hides the popup (OpenCode keeps running; press `Alt+o` again to reopen)
 - `Alt+e`: open Yazi in a floating popup
 - In the popup: `Alt+c` hides the popup (Yazi keeps running; press `Alt+e` again to reopen)
+- `Alt+f`: open a file fuzzy finder (fzf) in a popup; `Enter` opens the selection in `$EDITOR` in the original pane
+
+OpenCode/Yazi popups are isolated per tmux session (so you can have multiple running at once across sessions).

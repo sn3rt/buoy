@@ -48,6 +48,9 @@ link_item() {
 link_item ".zshrc" "$HOME/.zshrc"
 link_item ".scripts" "$HOME/.scripts"
 
+# Local commands
+link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
+
 # Terminal tool configs
 link_item ".config/starship.toml" "$HOME/.config/starship.toml"
 link_item ".config/atuin" "$HOME/.config/atuin"
