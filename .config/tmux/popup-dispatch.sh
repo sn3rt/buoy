@@ -25,6 +25,6 @@ open_local_popup() {
       exit 2
       ;;
   esac
-fi
+}
 
 open_local_popup
