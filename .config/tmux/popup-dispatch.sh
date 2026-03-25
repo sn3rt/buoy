@@ -3,23 +3,7 @@ set -euo pipefail
 
 kind="${1:?missing popup kind}"
 pane_id="${2:?missing pane id}"
-pane_cmd="${3:-}"
-session_path="${4:-$PWD}"
-
-is_remote_pane() {
-  case "$pane_cmd" in
-    ssh|mosh|mosh-client)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-forward_key() {
-  tmux send-keys -t "$pane_id" "$1"
-}
+session_path="${3:-$PWD}"
 
 open_local_popup() {
   case "$kind" in
@@ -41,19 +25,6 @@ open_local_popup() {
       exit 2
       ;;
   esac
-}
-
-if is_remote_pane; then
-  case "$kind" in
-    opencode) forward_key M-o ;;
-    yazi) forward_key M-e ;;
-    fzf) forward_key M-f ;;
-    *)
-      printf 'popup-dispatch: unknown kind: %s\n' "$kind" >&2
-      exit 2
-      ;;
-  esac
-  exit 0
 fi
 
 open_local_popup

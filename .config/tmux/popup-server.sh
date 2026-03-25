@@ -16,6 +16,21 @@ inner_session="${3:?missing inner session name}"
 cwd="${4:-$PWD}"
 shift 4
 
+wait_for_close() {
+  printf '\nPress any key to close...'
+  IFS= read -r -n 1 -s _ || true
+}
+
+if [[ $# -gt 0 ]]; then
+  cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    printf 'popup-server: command not found: %s\n' "$cmd" >&2
+    printf 'cwd: %s\n' "$cwd" >&2
+    wait_for_close
+    exit 127
+  fi
+fi
+
 outer_sid="$(tmux display-message -p '#{session_id}')"
 outer_sid="${outer_sid#\$}"
 

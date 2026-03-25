@@ -30,7 +30,12 @@ Install/update plugins on a machine by running your package manager (e.g. `bun i
 
 Config lives in `~/.config/tmux/tmux.conf` and is also linked to `~/.tmux.conf` for compatibility.
 
-Zsh auto-starts/attaches tmux on terminal open: `tmux new-session -A -s tavern` (bypass with `NO_TMUX=1`).
+New terminals open as a normal shell. Use `tmx` when you want a tmux session:
+
+- `tmx`: create/attach a session for the current directory
+- `tmx /path/to/project`: create/attach a session for that directory
+- Session names use the directory name plus a short path hash to avoid collisions
+- Popup keys are local-only; on remote hosts, start tmux there manually if you want popups/sessions
 
 - `Alt+o`: open OpenCode in a floating popup (requires tmux `display-popup`, tmux >= 3.2)
 - In the popup: `Alt+c` hides the popup (OpenCode keeps running; press `Alt+o` again to reopen)

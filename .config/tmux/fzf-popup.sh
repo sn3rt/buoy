@@ -21,6 +21,17 @@ fi
 
 editor="${EDITOR:-nvim}"
 
+wait_for_close() {
+  printf '\nPress any key to close...'
+  IFS= read -r -n 1 -s _ || true
+}
+
+if ! command -v fzf >/dev/null 2>&1; then
+  printf 'fzf-popup: command not found: fzf\n' >&2
+  wait_for_close
+  exit 127
+fi
+
 list_files() {
   if command -v fd >/dev/null 2>&1; then
     fd --hidden --follow --exclude .git --type f .

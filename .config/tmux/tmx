@@ -1,23 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-default_session="tavern"
-
 if [[ $# -eq 0 ]]; then
-  if [[ -n "${TMUX-}" ]]; then
-    tmux new-session -Ad -s "$default_session" -c "$PWD"
-    exec tmux switch-client -t "$default_session"
-  else
-    exec tmux new-session -A -s "$default_session" -c "$PWD"
-  fi
-fi
-
-if [[ $# -ne 1 ]]; then
+  dir="$PWD"
+elif [[ $# -eq 1 ]]; then
+  dir="$1"
+else
   printf 'usage: tmx [DIR]\n' >&2
   exit 2
 fi
 
-dir="$1"
 if [[ ! -d "$dir" ]]; then
   printf 'tmx: not a directory: %s\n' "$dir" >&2
   exit 2
@@ -35,7 +27,8 @@ name="${base}-${hash}"
 tmux has-session -t "$name" 2>/dev/null || tmux new-session -d -s "$name" -c "$dir"
 
 if [[ -n "${TMUX-}" ]]; then
+  tmux new-session -d -s "$name" -c "$dir" 2>/dev/null || true
   exec tmux switch-client -t "$name"
 else
-  exec tmux attach-session -t "$name"
+  exec tmux new-session -A -s "$name" -c "$dir"
 fi
