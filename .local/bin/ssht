@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+  printf 'usage: ssht <ssh args...>\n' >&2
+  exit 1
+fi
+
+if ! command -v tmux >/dev/null 2>&1; then
+  printf 'ssht: tmux is not installed\n' >&2
+  exit 1
+fi
+
+dest=''
+needs_value=0
+
+for arg in "$@"; do
+  if (( needs_value )); then
+    needs_value=0
+    continue
+  fi
+
+  case "$arg" in
+    --)
+      break
+      ;;
+    -[BbcDEeFIiJlmOopQRSWw])
+      needs_value=1
+      ;;
+    -*)
+      ;;
+    *)
+      dest="$arg"
+      break
+      ;;
+  esac
+done
+
+if [[ -z "$dest" ]]; then
+  dest='remote'
+fi
+
+label="${dest##*@}"
+label="${label%%:*}"
+label="${label//[^[:alnum:]._-]/-}"
+session="ssh-${label}-$$-$(date +%H%M%S)"
+
+if [[ -n "${TMUX-}" ]]; then
+  tmux new-session -d -s "$session" -c "$PWD" -- ssh "$@"
+  exec tmux switch-client -t "$session"
+else
+  exec tmux new-session -s "$session" -c "$PWD" -- ssh "$@"
+fi
