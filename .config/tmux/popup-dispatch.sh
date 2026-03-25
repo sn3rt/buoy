@@ -45,9 +45,9 @@ open_local_popup() {
 
 if is_remote_pane; then
   case "$kind" in
-    opencode) exec forward_key M-o ;;
-    yazi) exec forward_key M-e ;;
-    fzf) exec forward_key M-f ;;
+    opencode) forward_key M-o ;;
+    yazi) forward_key M-e ;;
+    fzf) forward_key M-f ;;
     *)
       printf 'popup-dispatch: unknown kind: %s\n' "$kind" >&2
       exit 2
