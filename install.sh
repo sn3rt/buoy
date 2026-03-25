@@ -50,6 +50,7 @@ link_item ".scripts" "$HOME/.scripts"
 
 # Local commands
 link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
+link_item ".local/bin/ssht" "$HOME/.local/bin/ssht"
 
 # Terminal tool configs
 link_item ".config/starship.toml" "$HOME/.config/starship.toml"
