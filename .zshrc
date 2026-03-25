@@ -85,3 +85,6 @@ alias rdp='~/.scripts/rdp_connect.sh'
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env"
 
 eval "$(atuin init zsh)"
+
+# opencode
+export PATH=/home/vdzee/.opencode/bin:$PATH
