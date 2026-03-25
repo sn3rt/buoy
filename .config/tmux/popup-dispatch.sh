@@ -53,6 +53,7 @@ if is_remote_pane; then
       exit 2
       ;;
   esac
+  exit 0
 fi
 
 open_local_popup
