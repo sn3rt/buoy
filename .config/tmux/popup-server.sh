@@ -4,17 +4,17 @@ set -euo pipefail
 # Start (or attach to) a dedicated tmux server per *outer* tmux session.
 #
 # Usage:
-#   popup-server.sh <name> <conf> <session_name> <cwd> <command...>
+#   popup-server.sh <name> <conf> <session_name> <outer_session_id> <cwd> <command...>
 #
-# We intentionally derive a unique suffix from the outer tmux session id.
-# tmux formats return session_id like "$1"; strip the leading '$' so the
-# shell doesn't treat it as a positional parameter.
+# We intentionally derive a unique suffix from the outer tmux session id,
+# captured by the outer tmux server before the popup shell starts.
 
 name="${1:?missing name}"
 conf="${2:?missing conf path}"
 inner_session="${3:?missing inner session name}"
-cwd="${4:-$PWD}"
-shift 4
+outer_sid="${4:?missing outer session id}"
+cwd="${5:-$PWD}"
+shift 5
 
 wait_for_close() {
   printf '\nPress any key to close...'
@@ -31,7 +31,6 @@ if [[ $# -gt 0 ]]; then
   fi
 fi
 
-outer_sid="$(tmux display-message -p '#{session_id}')"
 outer_sid="${outer_sid#\$}"
 
 socket_name="${name}-${outer_sid}"
