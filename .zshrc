@@ -7,6 +7,10 @@ if [ ! -d "$ZINIT_HOME" ]; then
   git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
 
+if [[ "${TERM-}" == "xterm-kitty" ]] && ! infocmp xterm-kitty >/dev/null 2>&1; then
+  export TERM="xterm-256color"
+fi
+
 # If on TTY, launch Hyprland
 # if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
 if [ -z "${DISPLAY-}" ] && [ "${XDG_VTNR-}" = "1" ]; then
@@ -43,7 +47,9 @@ autoload -Uz compinit
 compinit
 
 # Enable Starship prompt
-eval "$(starship init zsh)"
+if command -v starship >/dev/null 2>&1; then
+  eval "$(starship init zsh)"
+fi
 
 # Keybindings
 bindkey -v
@@ -84,7 +90,9 @@ alias rdp='~/.scripts/rdp_connect.sh'
 
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env"
 
-eval "$(atuin init zsh)"
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init zsh)"
+fi
 
 # opencode
 export PATH=/home/vdzee/.opencode/bin:$PATH

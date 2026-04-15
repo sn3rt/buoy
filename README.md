@@ -12,6 +12,28 @@ Run:
 
 This script creates symlinks from this repo into `$HOME` and moves any existing conflicting files into `~/.dotfiles-backup/<timestamp>/`.
 
+## Temporary remote shell
+
+If you want to SSH into another machine with these dotfiles for just that session, use `ssht` instead of installing the repo there:
+
+```bash
+ssht user@host
+```
+
+What it does:
+
+- packs this repo locally and streams it to the remote host
+- unpacks into a temporary directory on the remote host
+- starts `zsh` with `ZDOTDIR` and the XDG paths pointed at that temporary copy
+- removes the temporary directory again when the session exits
+
+Notes:
+
+- the remote host needs `zsh`, `tar`, and `mktemp`
+- `ssht` is for an interactive shell only; it does not support passing a remote command
+- `ssht` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
+- set `DOTFILES_DIR` if you want `ssht` to use a repo path other than the one inferred from the script location
+
 ## Secrets
 
 Create `~/.config/secrets/.zshenv` (not tracked by git). Example:

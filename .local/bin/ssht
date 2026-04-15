@@ -1,53 +1,114 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -eq 0 ]]; then
-  printf 'usage: ssht <ssh args...>\n' >&2
-  exit 1
-fi
+usage() {
+  printf 'usage: ssht [ssh options] host\n' >&2
+}
 
-if ! command -v tmux >/dev/null 2>&1; then
-  printf 'ssht: tmux is not installed\n' >&2
-  exit 1
-fi
+log() {
+  printf 'ssht: %s\n' "$*" >&2
+}
 
-dest=''
-needs_value=0
+resolve_repo_root() {
+  local script_path script_dir repo_root
 
-for arg in "$@"; do
-  if (( needs_value )); then
-    needs_value=0
-    continue
+  if [[ -n "${DOTFILES_DIR-}" ]]; then
+    repo_root="$DOTFILES_DIR"
+  else
+    script_path="$(readlink -f "${BASH_SOURCE[0]}")"
+    script_dir="$(dirname "$script_path")"
+    repo_root="$(cd "$script_dir/../.." && pwd)"
   fi
 
-  case "$arg" in
-    --)
-      break
-      ;;
-    -[BbcDEeFIiJlmOopQRSWw])
-      needs_value=1
-      ;;
-    -*)
-      ;;
-    *)
-      dest="$arg"
-      break
-      ;;
-  esac
-done
+  if [[ "$repo_root" == "$HOME" ]]; then
+    printf 'ssht: refusing to use %s as dotfiles root\n' "$HOME" >&2
+    printf 'ssht: set DOTFILES_DIR explicitly if your repo really lives elsewhere\n' >&2
+    exit 1
+  fi
 
-if [[ -z "$dest" ]]; then
-  dest='remote'
-fi
+  if [[ ! -f "$repo_root/.zshrc" || ! -d "$repo_root/.config" ]]; then
+    printf 'ssht: dotfiles root does not look valid: %s\n' "$repo_root" >&2
+    printf 'ssht: expected at least %s and %s\n' "$repo_root/.zshrc" "$repo_root/.config" >&2
+    exit 1
+  fi
 
-label="${dest##*@}"
-label="${label%%:*}"
-label="${label//[^[:alnum:]._-]/-}"
-session="ssh-${label}-$$-$(date +%H%M%S)"
+  printf '%s\n' "$repo_root"
+}
 
-if [[ -n "${TMUX-}" ]]; then
-  tmux new-session -d -s "$session" -c "$PWD" -- ssh "$@"
-  exec tmux switch-client -t "$session"
-else
-  exec tmux new-session -s "$session" -c "$PWD" -- ssh "$@"
-fi
+run_remote_shell() {
+  local repo_root ssh_dest socket tmp_remote status
+  local -a ssh_args=()
+
+  repo_root="$(resolve_repo_root)"
+
+  if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+  fi
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --)
+        printf 'ssht: remote commands are not supported; this always launches your dotfiles shell\n' >&2
+        exit 1
+        ;;
+      -[BbcDEeFIiJlmOopQRSWw])
+        if [[ $# -lt 2 ]]; then
+          usage
+          exit 1
+        fi
+        ssh_args+=("$1" "$2")
+        shift 2
+        ;;
+      -* )
+        ssh_args+=("$1")
+        shift
+        ;;
+      *)
+        ssh_dest="$1"
+        shift
+        if [[ $# -gt 0 ]]; then
+          printf 'ssht: remote commands are not supported; this always launches your dotfiles shell\n' >&2
+          exit 1
+        fi
+        break
+        ;;
+    esac
+  done
+
+  if [[ -z "${ssh_dest-}" ]]; then
+    usage
+    exit 1
+  fi
+
+  socket="$(mktemp -u "${TMPDIR:-/tmp}/ssht-socket.XXXXXXXX")"
+  cleanup_local() {
+    ssh -S "$socket" -O exit "$ssh_dest" >/dev/null 2>&1 || true
+    rm -f "$socket"
+  }
+  trap cleanup_local EXIT
+
+  log "using dotfiles repo $repo_root"
+  log "opening control connection to $ssh_dest"
+  ssh -MNf -o ControlMaster=yes -o ControlPersist=yes -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest"
+
+  log 'creating remote temp directory'
+  tmp_remote="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'mktemp -d "${TMPDIR:-/tmp}/ssht.XXXXXXXX"')"
+
+  log "streaming dotfiles to $ssh_dest:$tmp_remote"
+  tar --exclude-vcs -C "$repo_root" -cf - . | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "tar -C $(printf '%q' "$tmp_remote") -xf -"
+
+  status=0
+  log 'starting remote zsh with temporary dotfiles'
+  ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "if ! command -v zsh >/dev/null 2>&1; then printf 'ssht: zsh is not installed on the remote host\\n' >&2; rm -rf $(printf '%q' "$tmp_remote"); exit 1; fi; export DOTS=$(printf '%q' "$tmp_remote") ZDOTDIR=$(printf '%q' "$tmp_remote") XDG_CONFIG_HOME=$(printf '%q' "$tmp_remote/.config") XDG_DATA_HOME=$(printf '%q' "$tmp_remote/.local/share") XDG_STATE_HOME=$(printf '%q' "$tmp_remote/.local/state") XDG_CACHE_HOME=$(printf '%q' "$tmp_remote/.cache") PATH=$(printf '%q' "$tmp_remote/.local/bin"):\$PATH; zsh -l; status=\$?; rm -rf $(printf '%q' "$tmp_remote"); exit \$status" || status=$?
+
+  if [[ $status -eq 0 ]]; then
+    log 'remote session ended; temporary dotfiles cleaned up'
+  else
+    log "remote session exited with status $status"
+  fi
+
+  return "$status"
+}
+
+run_remote_shell "$@"
