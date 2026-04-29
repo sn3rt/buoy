@@ -46,6 +46,8 @@ zinit light joshskidmore/zsh-fzf-history-search
 autoload -Uz compinit
 compinit
 
+export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
+
 # Enable Starship prompt
 if command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
@@ -95,4 +97,4 @@ if command -v atuin >/dev/null 2>&1; then
 fi
 
 # opencode
-export PATH=/home/vdzee/.opencode/bin:$PATH
+export PATH="$HOME/.opencode/bin:$HOME/.local/share/opencode/bin:$PATH"
