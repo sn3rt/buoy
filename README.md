@@ -20,6 +20,27 @@ It links config/scripts only. To install the tools themselves at the versions pi
 
 This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, and `unzip`.
 
+## Shared team machines
+
+If multiple people share a single Ubuntu user account, each person should have their own
+Unix account so credentials and configs stay private. Run this once per person (requires
+sudo on the remote machine):
+
+```bash
+sudo ./setup-remote-user.sh <shared-user> <personal-user> [--ssh-key "pubkey"] [project-dir ...]
+```
+
+What it does:
+
+- creates the personal user account (if it doesn't exist)
+- adds them to the shared user's group so they can read the shared home
+- locks down the personal home dir (mode 700) so others cannot read it
+- optionally adds an SSH public key and sets up project dirs with group write access
+
+After that each person clones this repo into their own home and runs `./install.sh` +
+`./install-tools.sh` to get their own tools and configs, including their own Claude Code /
+OpenCode credentials.
+
 ## Temporary remote shell
 
 If you want to SSH into another machine with these dotfiles for just that session, use `ssht` instead of installing the repo there:

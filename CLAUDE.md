@@ -38,6 +38,7 @@ Tool versions are pinned in `versions.toml`. Skips tools already present on `$PA
 | `.config/tmux/{opencode,claude,yazi}.conf` | Minimal tmux configs for each popup server |
 | `.config/tmux/fzf-popup.sh` | fzf file picker; sends `$EDITOR <file>` to the originating pane |
 | `.local/bin/ssht` | SSH into a remote host using a temporary copy of this repo |
+| `setup-remote-user.sh` | One-time setup of a personal Unix account on a shared team machine |
 | `.config/secrets/.zshenv.example` | Template for secrets (not tracked); copy to `~/.config/secrets/.zshenv` |
 | `.config/opencode/opencode.json` | OpenCode config (tracked); `node_modules` is machine-local |
 
