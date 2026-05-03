@@ -10,7 +10,7 @@ set -euo pipefail
 #       [--ssh-key "pubkey"] [project-dir ...]
 #
 # Example:
-#   sudo ./setup-remote-user.sh team peter \
+#   sudo ./setup-remote-user.sh team vdzee \
 #       --ssh-key "ssh-ed25519 AAAA..." /home/team/projects
 
 usage() {
