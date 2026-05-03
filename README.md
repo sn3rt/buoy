@@ -12,7 +12,13 @@ Run:
 
 This script creates symlinks from this repo into `$HOME` and moves any existing conflicting files into `~/.dotfiles-backup/<timestamp>/`.
 
-It links config/scripts only. Install the actual tools separately on each machine.
+It links config/scripts only. To install the tools themselves at the versions pinned in `versions.toml`, run:
+
+```bash
+./install-tools.sh
+```
+
+This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, and `unzip`.
 
 ## Temporary remote shell
 

@@ -8,13 +8,23 @@ Shell and terminal tool configs for multiple Linux machines: zsh, tmux, nvim, st
 
 All files are symlinked into `$HOME` by `install.sh` — editing files here edits the live config.
 
-## Installing / re-linking
+## Installing / re-linking configs
 
 ```bash
 ./install.sh
 ```
 
 Idempotent. Backs up any conflicting files to `~/.dotfiles-backup/<timestamp>/` before creating symlinks.
+
+## Installing tools
+
+```bash
+./install-tools.sh          # install all tools listed in versions.toml
+./install-tools.sh nvim     # install one tool
+./install-tools.sh --update # re-download everything
+```
+
+Tool versions are pinned in `versions.toml`. Skips tools already present on `$PATH` or in `~/.local/bin/`. Requires `curl`, `tar`, `unzip`.
 
 ## Key files and their roles
 
