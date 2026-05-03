@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-  target_pane="${1:-}"
-  if [[ -z "$target_pane" ]]; then
+target_pane="${1:-}"
+if [[ -z "$target_pane" ]]; then
   target_pane="$(tmux show-option -qv @fzf_popup_target || true)"
-  fi
+fi
 if [[ -z "$target_pane" ]]; then
   printf 'fzf-popup: missing target pane id\n' >&2
   exit 2

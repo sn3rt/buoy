@@ -44,6 +44,11 @@ open_local_popup() {
       cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" opencode "$tmux_config_dir/opencode.conf" opencode "$outer_session_id" "$session_path" opencode)"
       open_tmux_command "OpenCode" "$cmd"
       ;;
+    claude)
+      local cmd
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$tmux_config_dir/claude.conf" claude "$outer_session_id" "$session_path" claude)"
+      open_tmux_command "Claude" "$cmd"
+      ;;
     yazi)
       local cmd
       cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" yazi "$tmux_config_dir/yazi.conf" yazi "$outer_session_id" "$session_path" yazi)"

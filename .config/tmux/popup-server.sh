@@ -64,6 +64,28 @@ resolve_opencode_session() {
   fi
 }
 
+resolve_claude_session() {
+  local project_key project_dir files=() latest_file
+
+  project_key="${cwd//\//-}"
+  project_dir="$HOME/.claude/projects/$project_key"
+  [[ -d "$project_dir" ]] || return 0
+
+  shopt -s nullglob
+  files=("$project_dir"/*.jsonl)
+  shopt -u nullglob
+  [[ ${#files[@]} -gt 0 ]] || return 0
+
+  latest_file=""
+  local f
+  for f in "${files[@]}"; do
+    [[ -z "$latest_file" || "$f" -nt "$latest_file" ]] && latest_file="$f"
+  done
+  [[ -n "$latest_file" ]] || return 0
+
+  basename "$latest_file" .jsonl
+}
+
 resolve_login_path() {
   local path_value
 
@@ -96,6 +118,15 @@ if [[ $# -gt 0 && "$1" == "opencode" ]]; then
     set -- opencode --session "$opencode_session" "$cwd"
   else
     set -- opencode "$cwd"
+  fi
+fi
+
+if [[ $# -gt 0 && "$1" == "claude" ]]; then
+  claude_session="$(resolve_claude_session)"
+  if [[ -n "$claude_session" ]]; then
+    set -- claude --resume "$claude_session"
+  else
+    set -- claude
   fi
 fi
 

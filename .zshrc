@@ -11,10 +11,7 @@ if [[ "${TERM-}" == "xterm-kitty" ]] && ! infocmp xterm-kitty >/dev/null 2>&1; t
   export TERM="xterm-256color"
 fi
 
-# If on TTY, launch Hyprland
-# if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
 if [ -z "${DISPLAY-}" ] && [ "${XDG_VTNR-}" = "1" ]; then
-  # exec hyprland
   exec start-hyprland
 fi
 
@@ -36,8 +33,6 @@ zinit light zsh-users/zsh-autosuggestions
 zinit light Aloxaf/fzf-tab
 zinit ice lucid wait'0'
 zinit light joshskidmore/zsh-fzf-history-search
-# Rebind Up arrow to trigger fzf history search
-# bindkey '^[[A' zsh-fzf-history-search
 
 # Shell integration (fzf)
 [[ -f "$HOME/.fzf.zsh" ]] && source "$HOME/.fzf.zsh"
@@ -62,7 +57,6 @@ bindkey '^n' history-search-forward
 HISTSIZE=5000
 HISTFILE=~/.zsh_history
 SAVEHIST=$HISTSIZE
-HISTUP=erase
 setopt appendhistory
 setopt sharehistory
 setopt hist_ignore_space
@@ -86,9 +80,6 @@ alias vim='nvim'
 alias snert='cat "$HOME/.config/snert-logo"'
 
 alias rdp='~/.scripts/rdp_connect.sh'
-
-#alias pvim='nvim -u .config/pvim/init.lua'
-
 
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env"
 
