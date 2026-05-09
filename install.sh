@@ -4,6 +4,20 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_ROOT="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 
+check_for_updates() {
+  command -v git >/dev/null 2>&1 || return 0
+  git -C "$REPO_ROOT" fetch --quiet 2>/dev/null || return 0
+  git -C "$REPO_ROOT" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 || return 0
+  local behind
+  behind="$(git -C "$REPO_ROOT" rev-list --count HEAD..@{u} 2>/dev/null || true)"
+  if [[ -n "$behind" && "$behind" -gt 0 ]]; then
+    printf 'Note: %s commit(s) available upstream. Run: git -C %s pull\n' \
+      "$behind" "$REPO_ROOT" >&2
+  fi
+}
+
+check_for_updates
+
 abspath() {
   # readlink -f is available on Linux
   readlink -f "$1"
