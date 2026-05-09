@@ -64,7 +64,7 @@ unpack_release() {
   filename="$(basename "$url")"
   local archive="$WORK_DIR/$filename"
 
-  log "  downloading $url"
+  printf '  downloading %s\n' "$url" >&2
   curl -fsSL -o "$archive" "$url"
 
   case "$filename" in
