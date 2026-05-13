@@ -121,6 +121,10 @@ if [[ $# -gt 0 && "$1" == "opencode" ]]; then
   fi
 fi
 
+if [[ $# -gt 0 && "$1" == "codex" ]]; then
+  set -- bash -lc 'if codex resume --last 2>/dev/null; then exit 0; fi; exec codex'
+fi
+
 if [[ $# -gt 0 && "$1" == "claude" ]]; then
   claude_session="$(resolve_claude_session)"
   if [[ -n "$claude_session" ]]; then

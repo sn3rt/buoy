@@ -98,12 +98,14 @@ New terminals open as a normal shell. Use `tmx` when you want a tmux session:
 
 - `Alt+o`: open OpenCode in a floating popup (requires tmux `display-popup`, tmux >= 3.2)
 - In the popup: `Alt+c` hides the popup (OpenCode keeps running; press `Alt+o` again to reopen)
+- `Alt+p`: open Codex in a floating popup
+- In the popup: `Alt+c` hides the popup (Codex keeps running; press `Alt+p` again to reopen)
 - `Alt+b`: open Claude in a floating popup
 - In the popup: `Alt+c` hides the popup (Claude keeps running; press `Alt+b` again to reopen)
 - `Alt+e`: open Yazi in a floating popup
 - In the popup: `Alt+c` hides the popup (Yazi keeps running; press `Alt+e` again to reopen)
 - `Alt+f`: open a file fuzzy finder (fzf) in a popup; `Enter` opens the selection in `$EDITOR` in the original pane
 
-OpenCode/Claude/Yazi popups are isolated per tmux session (so you can have multiple running at once across sessions).
+OpenCode/Codex/Claude/Yazi popups are isolated per tmux session (so you can have multiple running at once across sessions).
 
-These popups need the underlying tools installed on that machine (`opencode`, `claude`, `yazi`, `fzf`; `fd` is optional for the file picker).
+These popups need the underlying tools installed on that machine (`opencode`, `codex`, `claude`, `yazi`, `fzf`; `fd` is optional for the file picker).
