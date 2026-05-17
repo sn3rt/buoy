@@ -4,8 +4,10 @@ set -euo pipefail
 kind="${1:?missing popup kind}"
 pane_id="${2:?missing pane id}"
 outer_session_id="${3:?missing outer session id}"
-session_path="${4:-$PWD}"
-target_client="${5:-}"
+outer_session_name="${4:-}"
+outer_socket_path="${5:-}"
+session_path="${6:-$PWD}"
+target_client="${7:-}"
 tmux_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/tmux"
 
 shell_quote() {
@@ -41,22 +43,22 @@ open_local_popup() {
   case "$kind" in
     opencode)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" opencode "$tmux_config_dir/opencode.conf" opencode "$outer_session_id" "$session_path" opencode)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" opencode "$tmux_config_dir/opencode.conf" opencode "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" opencode)"
       open_tmux_command "OpenCode" "$cmd"
       ;;
     codex)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$tmux_config_dir/codex.conf" codex "$outer_session_id" "$session_path" codex)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$tmux_config_dir/codex.conf" codex "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" codex)"
       open_tmux_command "Codex" "$cmd"
       ;;
     claude)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$tmux_config_dir/claude.conf" claude "$outer_session_id" "$session_path" claude)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$tmux_config_dir/claude.conf" claude "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" claude)"
       open_tmux_command "Claude" "$cmd"
       ;;
     yazi)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" yazi "$tmux_config_dir/yazi.conf" yazi "$outer_session_id" "$session_path" yazi)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" yazi "$tmux_config_dir/yazi.conf" yazi "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" yazi)"
       open_tmux_command "Yazi" "$cmd"
       ;;
     fzf)

@@ -4,7 +4,7 @@ set -euo pipefail
 # Start (or attach to) a dedicated tmux server per *outer* tmux session.
 #
 # Usage:
-#   popup-server.sh <name> <conf> <session_name> <outer_session_id> <cwd> <command...>
+#   popup-server.sh <name> <conf> <session_name> <outer_session_id> <outer_session_name> <outer_socket_path> <cwd> <command...>
 #
 # We intentionally derive a unique suffix from the outer tmux session id,
 # captured by the outer tmux server before the popup shell starts.
@@ -13,11 +13,28 @@ name="${1:?missing name}"
 conf="${2:?missing conf path}"
 inner_session="${3:?missing inner session name}"
 outer_sid="${4:?missing outer session id}"
-cwd="${5:-$PWD}"
-shift 5
+outer_session_name="${5:-}"
+outer_socket_path="${6:-}"
+cwd="${7:-$PWD}"
+shift 7
 
 shell_quote() {
   printf '%q' "$1"
+}
+
+short_hash() {
+  if command -v sha1sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha1sum | awk '{print substr($1, 1, 10)}'
+  else
+    printf '%s' "$1" | cksum | awk '{print $1}'
+  fi
+}
+
+safe_name() {
+  local value="$1"
+  value="${value//[^A-Za-z0-9._-]/-}"
+  [[ -n "$value" ]] || value="session"
+  printf '%.32s' "$value"
 }
 
 sql_quote() {
@@ -135,10 +152,15 @@ if [[ $# -gt 0 && "$1" == "claude" ]]; then
 fi
 
 outer_sid="${outer_sid#\$}"
+outer_session_name="$(safe_name "$outer_session_name")"
 
-socket_name="${name}-${outer_sid}"
+socket_hash="$(short_hash "${outer_socket_path}|${outer_sid}|${outer_session_name}|${cwd}")"
+socket_name="${name}-${outer_session_name}-${socket_hash}"
 
-if [[ $# -eq 0 ]]; then
+if [[ "$name" == "yazi" ]]; then
+  env -u TMUX tmux -L "$socket_name" kill-server >/dev/null 2>&1 || true
+  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- "$@"
+elif [[ $# -eq 0 ]]; then
   env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell"
 else
   env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- "$@"
