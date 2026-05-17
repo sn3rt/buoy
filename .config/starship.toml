@@ -3,36 +3,36 @@ add_newline = false
 
 # Prompt format
 format = """
-[](#002b33)$username$hostname[](bg:#00353d fg:#002b33)$directory[](fg:#00353d bg:#009999)$git_branch$git_status[](fg:#009999 bg:none)$character
+[](black)$username$hostname[](bg:bright-black fg:black)$directory[](fg:bright-black bg:cyan)$git_branch$git_status[](fg:cyan bg:none)$character
 """
 
 # Username module
 [username]
-style_user = "bg:#002b33 fg:#009999"
-style_root = "bg:#00bcd4 fg:#ff0000"
+style_user = "bg:black fg:cyan"
+style_root = "bg:bright-cyan fg:red"
 format = "[$user]($style)"
 show_always = true
 
 # Hostname module
 [hostname]
-style = "bg:#00bcd4 fg:#009999"
+style = "bg:black fg:bright-cyan"
 format = "[@$hostname]($style)"
 disabled = false
 
 # Directory module
 [directory]
-style = "bg:#00353d fg:#009999"
+style = "bg:bright-black fg:white"
 format = "[ $path ]($style)"
 truncation_length = 3
 
 # Git branch module
 [git_branch]
-style = "bg:#009999 fg:#002b33"
+style = "bg:cyan fg:black"
 format = "[ $branch ]($style)"
 
 # Git status module
 [git_status]
-style = "bg:#009999 fg:#002b33"
+style = "bg:cyan fg:black"
 format = "[$all_status]($style)"
 
 # Character at the end
