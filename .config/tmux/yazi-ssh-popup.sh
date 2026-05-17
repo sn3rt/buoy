@@ -24,7 +24,7 @@ ratio = [1, 4, 0]
 [preview]
 max_width = 1
 max_height = 1
-image_delay = 255
+image_delay = 100
 
 [plugin]
 prepend_previewers = [
@@ -36,6 +36,13 @@ prepend_preloaders = [
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },
+]
+EOF
+
+cat >"$config_dir/keymap.toml" <<'EOF'
+[mgr]
+prepend_keymap = [
+  { on = "<A-c>", run = "quit", desc = "Close popup" },
 ]
 EOF
 
