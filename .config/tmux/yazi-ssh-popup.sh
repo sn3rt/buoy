@@ -24,7 +24,7 @@ ratio = [1, 4, 0]
 [preview]
 max_width = 1
 max_height = 1
-image_delay = 1000000
+image_delay = 255
 
 [plugin]
 prepend_previewers = [
