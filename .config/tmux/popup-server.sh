@@ -139,7 +139,7 @@ outer_sid="${outer_sid#\$}"
 socket_name="${name}-${outer_sid}"
 
 if [[ $# -eq 0 ]]; then
-  tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell"
+  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell"
 else
-  tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- "$@"
+  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- "$@"
 fi

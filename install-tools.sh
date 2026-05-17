@@ -70,7 +70,13 @@ unpack_release() {
   case "$filename" in
     *.tar.gz|*.tgz) tar -xzf "$archive" -C "$dest" ;;
     *.tbz|*.tar.bz2) tar -xjf "$archive" -C "$dest" ;;
-    *.zip)           unzip -q "$archive" -d "$dest" ;;
+    *.zip)
+      if ! command -v unzip >/dev/null 2>&1; then
+        printf 'install-tools: unzip is required to extract %s\n' "$filename" >&2
+        printf 'install-tools: install unzip with your system package manager, then rerun this script.\n' >&2
+        return 1
+      fi
+      unzip -q "$archive" -d "$dest" ;;
     *)
       printf 'install-tools: unknown archive format: %s\n' "$filename" >&2
       return 1 ;;
@@ -137,7 +143,7 @@ install_yazi() {
   local asset="yazi-${arch}-unknown-linux-musl.zip"
   local url="https://github.com/sxyazi/yazi/releases/download/v${version}/${asset}"
   local dir
-  dir="$(unpack_release yazi "$url")"
+  dir="$(unpack_release yazi "$url")" || return 1
   local inner="$dir/yazi-${arch}-unknown-linux-musl"
   install_bin "$inner/yazi"
   install_bin "$inner/ya"
