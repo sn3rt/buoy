@@ -58,7 +58,11 @@ open_local_popup() {
       ;;
     yazi)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" yazi "$tmux_config_dir/yazi.conf" yazi "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" yazi)"
+      if [[ -n "${SSH_CONNECTION-}${SSH_TTY-}" ]]; then
+        cmd="$(popup_command bash "$tmux_config_dir/yazi-ssh-popup.sh" "$session_path")"
+      else
+        cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" yazi "$tmux_config_dir/yazi.conf" yazi "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" yazi)"
+      fi
       open_tmux_command "Yazi" "$cmd"
       ;;
     fzf)
