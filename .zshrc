@@ -81,8 +81,6 @@ alias snert='cat "$HOME/.config/snert-logo"'
 
 alias rdp='~/.scripts/rdp_connect.sh'
 
-[[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env"
-
 if command -v atuin >/dev/null 2>&1; then
   eval "$(atuin init zsh)"
 fi
