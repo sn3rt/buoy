@@ -1,6 +1,10 @@
-# dotfiles
+# buoy
 
 Terminal-focused dotfiles for multiple Linux machines.
+
+This repo intentionally stays portable. Desktop/session-specific config such as
+Hyprland, Quickshell, wallpaper selection, and live theme generation
+lives in the separate quay repo.
 
 ## Install
 
@@ -10,7 +14,7 @@ Run:
 ./install.sh
 ```
 
-This script creates symlinks from this repo into `$HOME` and moves any existing conflicting files into `~/.dotfiles-backup/<timestamp>/`.
+This script creates symlinks from this repo into `$HOME` and moves any existing conflicting files into `~/.buoy-backup/<timestamp>/`.
 
 It links config/scripts only. To install the tools themselves at the versions pinned in `versions.toml`, run:
 
@@ -43,7 +47,7 @@ OpenCode credentials.
 
 ## Temporary remote shell
 
-If you want to SSH into another machine with these dotfiles for just that session, use `ssht` instead of installing the repo there:
+If you want to SSH into another machine with these buoy config for just that session, use `ssht` instead of installing the repo there:
 
 ```bash
 ssht user@host
@@ -84,6 +88,19 @@ Tracked here:
 The actual OpenCode install is machine-local.
 
 Install/update plugins on a machine by running your package manager (for example `bun install`) inside `~/.config/opencode/`.
+
+## Theme colors
+
+Terminal colors are read from `~/.config/buoy-theme/kitty.conf`, which is linked
+from `.config/buoy-theme/kitty.conf` in this repo.
+
+The quay repo owns the wallpaper palette generator. When you run its
+`theme-wallpaper` script, it updates the generated terminal theme inside this
+`dots` checkout. Commit and push that generated file when you want new terminal
+colors to follow `dots` to other machines.
+
+Machines that only install `dots` use the last committed terminal theme. They do
+not need Hyprland, Quickshell, Pillow, or wallpaper tooling.
 
 ## tmux
 

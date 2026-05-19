@@ -163,6 +163,6 @@ if [[ -z "$ssh_key" ]]; then
 else
   printf '  1. SSH in:            ssh %s@%s\n' "$personal_user" "$hostname_str"
 fi
-printf '  %s. Clone dotfiles:    git clone <repo> ~/dots\n' "$([[ -z "$ssh_key" ]] && printf 3 || printf 2)"
-printf '  %s. Link configs:      cd ~/dots && ./install.sh\n' "$([[ -z "$ssh_key" ]] && printf 4 || printf 3)"
+printf '  %s. Clone buoy:        git clone <repo> ~/buoy\n' "$([[ -z "$ssh_key" ]] && printf 3 || printf 2)"
+printf '  %s. Link configs:      cd ~/buoy && ./install.sh\n' "$([[ -z "$ssh_key" ]] && printf 4 || printf 3)"
 printf '  %s. Install tools:     ./install-tools.sh\n' "$([[ -z "$ssh_key" ]] && printf 5 || printf 4)"

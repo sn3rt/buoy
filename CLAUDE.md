@@ -14,7 +14,7 @@ All files are symlinked into `$HOME` by `install.sh` — editing files here edit
 ./install.sh
 ```
 
-Idempotent. Backs up any conflicting files to `~/.dotfiles-backup/<timestamp>/` before creating symlinks.
+Idempotent. Backs up any conflicting files to `~/.buoy-backup/<timestamp>/` before creating symlinks.
 
 ## Installing tools
 

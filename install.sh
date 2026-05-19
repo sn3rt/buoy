@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_ROOT="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+BACKUP_ROOT="$HOME/.buoy-backup/$(date +%Y%m%d-%H%M%S)"
 
 check_for_updates() {
   command -v git >/dev/null 2>&1 || return 0
@@ -20,7 +20,7 @@ check_for_updates
 
 abspath() {
   # readlink -f is available on Linux
-  readlink -f "$1"
+  readlink -f "$1" 2>/dev/null || printf '%s\n' "$1"
 }
 
 backup_target() {
@@ -65,9 +65,9 @@ link_item ".scripts" "$HOME/.scripts"
 # Local commands
 link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
 link_item ".local/bin/ssht" "$HOME/.local/bin/ssht"
-link_item ".local/bin/theme-wallpaper" "$HOME/.local/bin/theme-wallpaper"
 
 # Terminal tool configs
+link_item ".config/buoy-theme" "$HOME/.config/buoy-theme"
 link_item ".config/starship.toml" "$HOME/.config/starship.toml"
 link_item ".config/atuin" "$HOME/.config/atuin"
 link_item ".config/btop" "$HOME/.config/btop"
