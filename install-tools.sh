@@ -15,6 +15,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
+TOOL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/dots-tools"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -94,6 +95,14 @@ install_bin() {
   log "  installed $INSTALL_DIR/$name"
 }
 
+link_bin() {
+  local src="$1"
+  local name="${2:-$(basename "$src")}"
+  mkdir -p "$INSTALL_DIR"
+  ln -sfn "$src" "$INSTALL_DIR/$name"
+  log "  linked $INSTALL_DIR/$name -> $src"
+}
+
 # ---------------------------------------------------------------------------
 # Per-tool installers
 
@@ -103,7 +112,12 @@ install_nvim() {
   local url="https://github.com/neovim/neovim/releases/download/v${version}/${asset}"
   local dir
   dir="$(unpack_release nvim "$url")"
-  install_bin "$dir/nvim-linux-${arch}/bin/nvim"
+  local src="$dir/nvim-linux-${arch}"
+  local dest="$TOOL_ROOT/nvim-${version}-${arch}"
+  mkdir -p "$TOOL_ROOT"
+  rm -rf "$dest"
+  cp -R "$src" "$dest"
+  link_bin "$dest/bin/nvim" nvim
 }
 
 install_starship() {
