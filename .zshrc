@@ -74,7 +74,7 @@ zstyle ':completion:*' cache-path ~/.zcompdump
 # Aliases
 alias ls='ls --color'
 alias la='ls -a --color'
-alias ll='ls -an --color'
+alias ll='ls -aln --color'
 alias vi='nvim'
 alias vim='nvim'
 alias snert='cat "$HOME/.config/snert-logo"'

@@ -37,7 +37,7 @@ open_tmux_command() {
   exec tmux new-window -n "$title" -c "$session_path" "$cmd"
 }
 
-open_local_popup() {
+open_popup() {
   popup_args=(-E -w 90% -h 90% -d "$session_path")
 
   case "$kind" in
@@ -58,11 +58,7 @@ open_local_popup() {
       ;;
     yazi)
       local cmd
-      if [[ -n "${SSH_CONNECTION-}${SSH_TTY-}" ]]; then
-        cmd="$(popup_command bash "$tmux_config_dir/yazi-ssh-popup.sh" "$session_path")"
-      else
-        cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" yazi "$tmux_config_dir/yazi.conf" yazi "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" yazi)"
-      fi
+      cmd="$(popup_command bash "$tmux_config_dir/yazi-popup.sh" "$session_path")"
       open_tmux_command "Yazi" "$cmd"
       ;;
     fzf)
@@ -78,4 +74,4 @@ open_local_popup() {
   esac
 }
 
-open_local_popup
+open_popup

@@ -19,31 +19,44 @@ fi
 
 cat >"$config_dir/yazi.toml" <<'EOF'
 [mgr]
-ratio = [1, 4, 0]
+linemode = "btime_and_size"
 
 [preview]
 max_width = 1
 max_height = 1
 image_delay = 100
 
+[opener]
+imv = [
+  { run = "imv %s", orphan = true, desc = "Open in imv", for = "unix" }
+]
+
+[open]
+prepend_rules = [
+  { mime = "image/*", use = "imv" }
+]
+
 [plugin]
 prepend_previewers = [
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },
+  { mime = "image/tiff", run = "noop" },
+  { url = "*.tif",  run = "noop" },
+  { url = "*.tiff", run = "noop" },
 ]
 prepend_preloaders = [
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },
+  { mime = "image/tiff", run = "noop" },
+  { url = "*.tif",  run = "noop" },
+  { url = "*.tiff", run = "noop" },
 ]
 EOF
 
-cat >"$config_dir/keymap.toml" <<'EOF'
-[mgr]
-prepend_keymap = [
-  { on = "<A-c>", run = "quit", desc = "Close popup" },
-]
-EOF
+if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/yazi/init.lua" ]]; then
+  ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/yazi/init.lua" "$config_dir/init.lua"
+fi
 
 YAZI_CONFIG_HOME="$config_dir" exec yazi "$session_path"

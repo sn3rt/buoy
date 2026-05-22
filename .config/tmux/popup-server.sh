@@ -157,11 +157,7 @@ outer_session_name="$(safe_name "$outer_session_name")"
 socket_hash="$(short_hash "${outer_socket_path}|${outer_sid}|${outer_session_name}|${cwd}")"
 socket_name="${name}-${outer_session_name}-${socket_hash}"
 
-if [[ "$name" == "yazi" ]]; then
-  yazi_runner="$(dirname "$conf")/yazi-run.sh"
-  env -u TMUX tmux -L "$socket_name" kill-server >/dev/null 2>&1 || true
-  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- bash "$yazi_runner" "$@"
-elif [[ $# -eq 0 ]]; then
+if [[ $# -eq 0 ]]; then
   env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell"
 else
   env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- "$@"
