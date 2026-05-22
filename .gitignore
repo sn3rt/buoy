@@ -1,3 +1,4 @@
 .config/secrets/.zshenv
 **/node_modules/
 .dotfiles-backup/
+CLAUDE.md

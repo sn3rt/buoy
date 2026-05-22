@@ -27,14 +27,8 @@ popup_command() {
 open_tmux_command() {
   local title="$1"
   local cmd="$2"
-  local err
 
-  if err="$(tmux display-popup -T "$title" "${popup_args[@]}" "$cmd" 2>&1)"; then
-    return 0
-  fi
-
-  tmux display-message -d 4000 "${title} popup unavailable; opened in a window instead"
-  exec tmux new-window -n "$title" -c "$session_path" "$cmd"
+  tmux display-popup -T "$title" "${popup_args[@]}" "$cmd" || true
 }
 
 open_popup() {

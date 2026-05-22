@@ -120,7 +120,7 @@ New terminals open as a normal shell. Use `tmx` when you want a tmux session:
 - `Alt+b`: open Claude in a floating popup
 - In the popup: `Alt+c` hides the popup (Claude keeps running; press `Alt+b` again to reopen)
 - `Alt+e`: open Yazi in a floating popup
-- In the popup: `q` closes Yazi and the popup
+- In the popup: `Alt+c` closes the popup; `q` closes Yazi and the popup
 - `Alt+f`: open a file fuzzy finder (fzf) in a popup; `Enter` opens the selection in `$EDITOR` in the original pane
 
 OpenCode/Codex/Claude popups are isolated per tmux session (so you can have multiple running at once across sessions). Yazi and fzf are short-lived popups.

@@ -52,7 +52,7 @@ Long-running popup tools (opencode, codex, claude) run inside their own dedicate
 3. **`popup-server.sh`** → starts or attaches a tmux server named `<tool>-<outer_session_id>` and launches the tool
    - For opencode: queries the opencode SQLite DB to resume the most recent session for the cwd
    - For claude: finds the latest `.jsonl` in `~/.claude/projects/<cwd-as-path>/` to `--resume` a session
-4. `Alt+c` inside OpenCode/Codex/Claude detaches the inner client; Yazi closes with its normal `q` binding
+4. `Alt+c` is handled by the outer tmux server with `display-popup -C`; short-lived popup tools may also exit themselves normally
 
 ## ssht — temporary remote dotfiles
 
