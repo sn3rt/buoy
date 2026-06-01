@@ -108,7 +108,7 @@ run_remote_shell() {
 
   status=0
   log 'starting remote zsh with temporary dotfiles'
-  ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "export SHELL=$(printf '%q' "$remote_zsh") DOTS=$(printf '%q' "$tmp_remote") ZDOTDIR=$(printf '%q' "$tmp_remote") XDG_CONFIG_HOME=$(printf '%q' "$tmp_remote/.config") XDG_DATA_HOME=$(printf '%q' "$tmp_remote/.local/share") XDG_STATE_HOME=$(printf '%q' "$tmp_remote/.local/state") XDG_CACHE_HOME=$(printf '%q' "$tmp_remote/.cache") PATH=$(printf '%q' "$tmp_remote/.local/bin"):\$PATH; $(printf '%q' "$remote_zsh") -l; status=\$?; rm -rf $(printf '%q' "$tmp_remote"); exit \$status" || status=$?
+  ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "export SHELL=$(printf '%q' "$remote_zsh") DOTS=$(printf '%q' "$tmp_remote") ZDOTDIR=$(printf '%q' "$tmp_remote") XDG_BIN_HOME=$(printf '%q' "$tmp_remote/.local/bin") XDG_CONFIG_HOME=$(printf '%q' "$tmp_remote/.config") XDG_DATA_HOME=$(printf '%q' "$tmp_remote/.local/share") XDG_STATE_HOME=$(printf '%q' "$tmp_remote/.local/state") XDG_CACHE_HOME=$(printf '%q' "$tmp_remote/.cache") PATH=$(printf '%q' "$tmp_remote/.local/bin"):\$PATH; $(printf '%q' "$remote_zsh") -l; status=\$?; rm -rf $(printf '%q' "$tmp_remote"); exit \$status" || status=$?
 
   if [[ $status -eq 0 ]]; then
     log 'remote session ended; temporary dotfiles cleaned up'

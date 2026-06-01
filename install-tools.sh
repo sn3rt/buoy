@@ -11,10 +11,10 @@ set -euo pipefail
 #   ./install-tools.sh --update fzf # re-download one tool
 #
 # Requires: curl, tar, awk, unzip (unzip only needed for yazi)
-# Installs to: ~/.local/bin/
+# Installs to: ${XDG_BIN_HOME:-~/.local/bin}/
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="$HOME/.local/bin"
+INSTALL_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 TOOL_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/dots-tools"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT

@@ -75,10 +75,12 @@ zstyle ':completion:*' cache-path ~/.zcompdump
 alias ls='ls --color'
 alias la='ls -a --color'
 alias ll='ls -aln --color'
+alias sudo='sudo '
+
 alias vi='nvim'
 alias vim='nvim'
-alias snert='cat "$HOME/.config/snert-logo"'
 
+alias snert='cat "$HOME/.config/snert-logo"'
 alias rdp='~/.scripts/rdp_connect.sh'
 
 if command -v atuin >/dev/null 2>&1; then

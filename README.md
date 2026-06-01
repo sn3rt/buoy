@@ -66,6 +66,7 @@ Notes:
 - `ssht` is for an interactive shell only; it does not support passing a remote command
 - `ssht` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
 - config, cache, logs, and OpenCode auth written during the session stay in that temporary directory and are removed when the session ends
+- tools installed with `./install-tools.sh` inside an `ssht` session go into the same temporary directory and are removed when the session ends
 - set `DOTFILES_DIR` if you want `ssht` to use a repo path other than the one inferred from the script location
 
 ## Secrets
