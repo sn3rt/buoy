@@ -43,17 +43,26 @@ require("lazy").setup({
   ---------------------------------------------------------------------------
   {
     "nvim-treesitter/nvim-treesitter",
+    branch = "main",
+    lazy = false,
     build = ":TSUpdate",
     config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "lua", "python", "javascript", "typescript",
-          "html", "css", "bash", "json", "yaml",
-          "toml", "markdown", "markdown_inline",
-          "c", "cpp", "rust", "go",
-        },
-        highlight = { enable = true },
-        indent = { enable = true },
+      local parsers = {
+        "lua", "python", "javascript", "typescript",
+        "html", "css", "bash", "json", "yaml",
+        "toml", "markdown", "markdown_inline",
+        "c", "cpp", "rust",
+      }
+
+      require("nvim-treesitter").install(parsers)
+
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = parsers,
+        callback = function()
+          if pcall(vim.treesitter.start) then
+            vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+          end
+        end,
       })
     end,
   },
@@ -151,7 +160,7 @@ require("lazy").setup({
           "ts_ls", "html", "cssls", "jsonls",
 
           -- Programming
-          "pyright", "rust_analyzer", "clangd", "gopls",
+          "pyright", "rust_analyzer", "clangd",
           "bashls", "lua_ls",
 
           -- Config / markup
@@ -174,7 +183,6 @@ require("lazy").setup({
         rust_analyzer = {},
         ts_ls = {},
         clangd = {},
-        gopls = {},
         bashls = {},
         html = {},
         cssls = {},
@@ -253,4 +261,3 @@ require("lazy").setup({
   },
 
 })
-

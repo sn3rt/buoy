@@ -17,11 +17,10 @@ fi
 
 # Source zinit
 source "${ZINIT_HOME}/zinit.zsh"
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="${XDG_BIN_HOME:-$HOME/.local/bin}:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="$HOME/.nix-profile/bin:$PATH"
 export EDITOR="nvim"
-export GOPATH="$HOME/.local/share/go"
 
 # Optional secrets (not tracked in dotfiles)
 [[ -f "$HOME/.config/secrets/.zshenv" ]] && source "$HOME/.config/secrets/.zshenv"

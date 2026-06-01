@@ -24,7 +24,7 @@ Idempotent. Backs up any conflicting files to `~/.buoy-backup/<timestamp>/` befo
 ./install-tools.sh --update # re-download everything
 ```
 
-Tool versions are pinned in `versions.toml`. Skips tools already present on `$PATH` or in `~/.local/bin/`. Requires `curl`, `tar`, `unzip`.
+Tool versions are pinned in `versions.toml`. Skips tools already present on `$PATH` or in `~/.local/bin/`. Requires `curl`, `tar`, `gzip`, and `unzip`. Neovim Treesitter parser builds also require a C compiler.
 
 ## Key files and their roles
 

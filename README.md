@@ -22,7 +22,7 @@ It links config/scripts only. To install the tools themselves at the versions pi
 ./install-tools.sh
 ```
 
-This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, and `unzip`.
+This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, and `unzip`. Neovim Treesitter parser builds also require a C compiler.
 
 ## Shared team machines
 

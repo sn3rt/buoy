@@ -181,6 +181,23 @@ install_btop() {
   install_bin "$dir/btop/bin/btop"
 }
 
+install_tree_sitter() {
+  local version="$1" arch="$2"
+  local tree_sitter_arch
+  case "$arch" in
+    x86_64)  tree_sitter_arch="x64" ;;
+    aarch64) tree_sitter_arch="arm64" ;;
+  esac
+  local asset="tree-sitter-linux-${tree_sitter_arch}.gz"
+  local url="https://github.com/tree-sitter/tree-sitter/releases/download/v${version}/${asset}"
+  local archive="$WORK_DIR/$asset"
+  local bin="$WORK_DIR/tree-sitter"
+  printf '  downloading %s\n' "$url" >&2
+  curl -fsSL -o "$archive" "$url"
+  gzip -dc "$archive" >"$bin"
+  install_bin "$bin" tree-sitter
+}
+
 dispatch_install() {
   local tool="$1" version="$2" arch="$3"
   case "$tool" in
@@ -191,6 +208,7 @@ dispatch_install() {
     yazi)     install_yazi     "$version" "$arch" ;;
     atuin)    install_atuin    "$version" "$arch" ;;
     btop)     install_btop     "$version" "$arch" ;;
+    tree_sitter) install_tree_sitter "$version" "$arch" ;;
     *)
       printf 'install-tools: unknown tool: %s\n' "$tool" >&2
       return 1 ;;
@@ -202,6 +220,7 @@ dispatch_install() {
 
 is_installed() {
   local tool="$1"
+  [[ "$tool" == "tree_sitter" ]] && tool="tree-sitter"
   [[ -x "$INSTALL_DIR/$tool" ]] || command -v "$tool" >/dev/null 2>&1
 }
 
@@ -237,7 +256,7 @@ main() {
     VERSIONS["$key"]="$val"
   done < <(parse_versions "$toml")
 
-  local -a TOOLS=(nvim starship fzf fd yazi atuin btop)
+  local -a TOOLS=(nvim starship fzf fd yazi atuin btop tree_sitter)
 
   for tool in "${TOOLS[@]}"; do
     [[ -n "$only_tool" && "$tool" != "$only_tool" ]] && continue
