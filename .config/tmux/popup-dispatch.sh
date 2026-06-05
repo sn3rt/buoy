@@ -9,6 +9,7 @@ outer_socket_path="${5:-}"
 session_path="${6:-$PWD}"
 target_client="${7:-}"
 tmux_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/tmux"
+agent_conf="$tmux_config_dir/agent-popup.conf"
 
 shell_quote() {
   printf '%q' "$1"
@@ -37,17 +38,17 @@ open_popup() {
   case "$kind" in
     opencode)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" opencode "$tmux_config_dir/opencode.conf" opencode "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" opencode)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" opencode "$agent_conf" opencode "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" opencode)"
       open_tmux_command "OpenCode" "$cmd"
       ;;
     codex)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$tmux_config_dir/codex.conf" codex "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" codex)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$agent_conf" codex "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" codex)"
       open_tmux_command "Codex" "$cmd"
       ;;
     claude)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$tmux_config_dir/claude.conf" claude "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" claude)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$agent_conf" claude "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" claude)"
       open_tmux_command "Claude" "$cmd"
       ;;
     yazi)
