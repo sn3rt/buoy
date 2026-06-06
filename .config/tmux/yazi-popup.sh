@@ -19,12 +19,16 @@ fi
 
 cat >"$config_dir/yazi.toml" <<'EOF'
 [mgr]
+ratio = [1, 4, 0]
 linemode = "btime_and_size"
 
 [preview]
 max_width = 1
 max_height = 1
 image_delay = 100
+
+[tasks]
+preload_workers = 0
 
 [opener]
 imv = [
@@ -38,6 +42,8 @@ prepend_rules = [
 
 [plugin]
 prepend_previewers = [
+  { url = "*", run = "noop" },
+  { url = "*/", run = "noop" },
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },
@@ -46,6 +52,8 @@ prepend_previewers = [
   { url = "*.tiff", run = "noop" },
 ]
 prepend_preloaders = [
+  { url = "*", run = "noop" },
+  { url = "*/", run = "noop" },
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },

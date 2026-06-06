@@ -28,8 +28,19 @@ popup_command() {
 open_tmux_command() {
   local title="$1"
   local cmd="$2"
+  local client_args=()
 
-  tmux display-popup -T "$title" "${popup_args[@]}" "$cmd" || true
+  if [[ -n "$target_client" ]]; then
+    client_args=(-c "$target_client")
+  fi
+
+  tmux display-popup "${client_args[@]}" -T "$title" "${popup_args[@]}" "$cmd" || true
+}
+
+ensure_tmux_passthrough() {
+  tmux set-option -gq allow-passthrough on 2>/dev/null || true
+  tmux set-option -gq -a update-environment TERM 2>/dev/null || true
+  tmux set-option -gq -a update-environment TERM_PROGRAM 2>/dev/null || true
 }
 
 open_popup() {
@@ -53,7 +64,8 @@ open_popup() {
       ;;
     yazi)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/yazi-popup.sh" "$session_path")"
+      ensure_tmux_passthrough
+      cmd="$(popup_command bash "$tmux_config_dir/yazi-server.sh" open "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path")"
       open_tmux_command "Yazi" "$cmd"
       ;;
     fzf)

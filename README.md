@@ -92,16 +92,20 @@ Install/update plugins on a machine by running your package manager (for example
 
 ## Theme colors
 
-Terminal colors are read from `~/.config/buoy-theme/kitty.conf`, which is linked
-from `.config/buoy-theme/kitty.conf` in this repo.
+Terminal and Neovim colors are read from `~/.config/buoy-theme/kitty.conf`,
+which is linked from `.config/buoy-theme/kitty.conf` in this repo.
 
 The quay repo owns the wallpaper palette generator. When you run its
-`theme-wallpaper` script, it updates the generated terminal theme inside this
+`theme-wallpaper` script, it updates the generated shared theme inside this
 `dots` checkout. Commit and push that generated file when you want new terminal
-colors to follow `dots` to other machines.
+and Neovim colors to follow `dots` to other machines.
 
-Machines that only install `dots` use the last committed terminal theme. They do
+Machines that only install `dots` use the last committed shared theme. They do
 not need Hyprland, Quickshell, Pillow, or wallpaper tooling.
+
+Neovim uses terminal palette slots instead of hardcoded hex colors, so live
+Kitty palette updates also affect Neovim. Running `:BuoyThemeReload` inside
+Neovim reapplies the highlight mappings if another colorscheme overwrites them.
 
 ## tmux
 

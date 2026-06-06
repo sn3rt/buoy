@@ -71,9 +71,8 @@ zstyle ':completion:*' use-cache on
 zstyle ':completion:*' cache-path ~/.zcompdump
 
 # Aliases
-alias ls='ls --color'
-alias la='ls -a --color'
-alias ll='ls -aln --color'
+alias ls='eza --tree --level=3 -la --git --ignore-glob=".git"'
+alias ll='eza -la --git --ignore-glob=".git"'
 alias sudo='sudo '
 
 alias vi='nvim'

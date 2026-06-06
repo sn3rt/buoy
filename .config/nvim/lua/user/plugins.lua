@@ -15,30 +15,6 @@ vim.opt.rtp:prepend(lazypath)
 require("lazy").setup({
 
   ---------------------------------------------------------------------------
-  -- Colorscheme (Catppuccin)
-  ---------------------------------------------------------------------------
-  {
-    "catppuccin/nvim",
-    name = "catppuccin",
-    priority = 1000,
-    config = function()
-      require("catppuccin").setup({
-        flavour = "mocha", -- latte, frappe, macchiato, mocha
-        integrations = {
-          treesitter = true,
-          native_lsp = true,
-          nvimtree = true,
-          bufferline = true,
-          telescope = true,
-          mason = true,
-          cmp = true,
-        },
-      })
-      vim.cmd.colorscheme("catppuccin")
-    end,
-  },
-
-  ---------------------------------------------------------------------------
   -- Treesitter
   ---------------------------------------------------------------------------
   {
@@ -72,9 +48,38 @@ require("lazy").setup({
   ---------------------------------------------------------------------------
   {
     "nvim-tree/nvim-tree.lua",
+    tag = "v1.17.0",
     dependencies = { "nvim-tree/nvim-web-devicons" },
     config = function()
-      require("nvim-tree").setup()
+      local function on_attach(bufnr)
+        local api = require("nvim-tree.api")
+
+        local function opts(desc)
+          return {
+            desc = "nvim-tree: " .. desc,
+            buffer = bufnr,
+            noremap = true,
+            silent = true,
+            nowait = true,
+          }
+        end
+
+        api.config.mappings.default_on_attach(bufnr)
+
+        vim.opt_local.scrolloff = 0
+        vim.opt_local.sidescrolloff = 0
+
+        vim.keymap.set("n", "l", api.node.open.edit, opts("Open"))
+        vim.keymap.set("n", "h", api.node.navigate.parent_close, opts("Close Directory"))
+      end
+
+      require("nvim-tree").setup({
+        hijack_directories = {
+          enable = true,
+          auto_open = true,
+        },
+        on_attach = on_attach,
+      })
     end,
   },
 
@@ -261,3 +266,5 @@ require("lazy").setup({
   },
 
 })
+
+require("user.theme").setup()
