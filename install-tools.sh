@@ -66,18 +66,18 @@ unpack_release() {
   local archive="$WORK_DIR/$filename"
 
   printf '  downloading %s\n' "$url" >&2
-  curl -fsSL -o "$archive" "$url"
+  curl -fsSL -o "$archive" "$url" || return 1
 
   case "$filename" in
-    *.tar.gz|*.tgz) tar -xzf "$archive" -C "$dest" ;;
-    *.tbz|*.tar.bz2) tar -xjf "$archive" -C "$dest" ;;
+    *.tar.gz|*.tgz) tar -xzf "$archive" -C "$dest" || return 1 ;;
+    *.tbz|*.tar.bz2) tar -xjf "$archive" -C "$dest" || return 1 ;;
     *.zip)
       if ! command -v unzip >/dev/null 2>&1; then
         printf 'install-tools: unzip is required to extract %s\n' "$filename" >&2
         printf 'install-tools: install unzip with your system package manager, then rerun this script.\n' >&2
         return 1
       fi
-      unzip -q "$archive" -d "$dest" ;;
+      unzip -q "$archive" -d "$dest" || return 1 ;;
     *)
       printf 'install-tools: unknown archive format: %s\n' "$filename" >&2
       return 1 ;;
@@ -108,11 +108,16 @@ link_bin() {
 
 install_nvim() {
   local version="$1" arch="$2"
-  local asset="nvim-linux-${arch}.tar.gz"
+  local nvim_arch
+  case "$arch" in
+    x86_64)  nvim_arch="x86_64" ;;
+    aarch64) nvim_arch="arm64" ;;
+  esac
+  local asset="nvim-linux-${nvim_arch}.tar.gz"
   local url="https://github.com/neovim/neovim/releases/download/v${version}/${asset}"
   local dir
   dir="$(unpack_release nvim "$url")"
-  local src="$dir/nvim-linux-${arch}"
+  local src="$dir/nvim-linux-${nvim_arch}"
   local dest="$TOOL_ROOT/nvim-${version}-${arch}"
   mkdir -p "$TOOL_ROOT"
   rm -rf "$dest"
