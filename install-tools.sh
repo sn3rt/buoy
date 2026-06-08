@@ -10,7 +10,7 @@ set -euo pipefail
 #   ./install-tools.sh nvim         # install one tool
 #   ./install-tools.sh --update fzf # re-download one tool
 #
-# Requires: curl, tar, awk, unzip (unzip only needed for yazi)
+# Requires: curl, tar, awk, gzip, bzip2, unzip (unzip only needed for yazi)
 # Installs to: ${XDG_BIN_HOME:-~/.local/bin}/
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,7 +70,13 @@ unpack_release() {
 
   case "$filename" in
     *.tar.gz|*.tgz) tar -xzf "$archive" -C "$dest" || return 1 ;;
-    *.tbz|*.tar.bz2) tar -xjf "$archive" -C "$dest" || return 1 ;;
+    *.tbz|*.tar.bz2)
+      if ! command -v bzip2 >/dev/null 2>&1; then
+        printf 'install-tools: bzip2 is required to extract %s\n' "$filename" >&2
+        printf 'install-tools: install bzip2 with your system package manager, then rerun this script.\n' >&2
+        return 1
+      fi
+      tar -xjf "$archive" -C "$dest" || return 1 ;;
     *.zip)
       if ! command -v unzip >/dev/null 2>&1; then
         printf 'install-tools: unzip is required to extract %s\n' "$filename" >&2

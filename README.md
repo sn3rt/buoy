@@ -22,7 +22,7 @@ It links config/scripts only. To install the tools themselves at the versions pi
 ./install-tools.sh
 ```
 
-This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, and `unzip`. Neovim Treesitter parser builds also require a C compiler.
+This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Neovim Treesitter parser builds also require a C compiler.
 
 ## Shared team machines
 
@@ -42,8 +42,8 @@ What it does:
 - optionally adds an SSH public key and sets up project dirs with group write access
 
 After that each person clones this repo into their own home and runs `./install.sh` +
-`./install-tools.sh` to get their own tools and configs, including their own Claude Code /
-OpenCode credentials.
+`./install-tools.sh` to get their own tools and configs, including their own Claude Code
+credentials.
 
 ## Temporary remote shell
 
@@ -65,7 +65,7 @@ Notes:
 - the remote host needs `zsh`, `tar`, and `mktemp`
 - `ssht` is for an interactive shell only; it does not support passing a remote command
 - `ssht` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
-- config, cache, logs, and OpenCode auth written during the session stay in that temporary directory and are removed when the session ends
+- config, cache, and logs written during the session stay in that temporary directory and are removed when the session ends
 - tools installed with `./install-tools.sh` inside an `ssht` session go into the same temporary directory and are removed when the session ends
 - set `DOTFILES_DIR` if you want `ssht` to use a repo path other than the one inferred from the script location
 
@@ -77,18 +77,6 @@ Create `~/.config/secrets/.zshenv` (not tracked by git). Example:
 cp .config/secrets/.zshenv.example ~/.config/secrets/.zshenv
 $EDITOR ~/.config/secrets/.zshenv
 ```
-
-## OpenCode
-
-Tracked here:
-
-- `~/.config/opencode/opencode.json`
-- `~/.config/opencode/package.json`
-- `~/.config/opencode/bun.lock`
-
-The actual OpenCode install is machine-local.
-
-Install/update plugins on a machine by running your package manager (for example `bun install`) inside `~/.config/opencode/`.
 
 ## Theme colors
 
@@ -118,8 +106,6 @@ New terminals open as a normal shell. Use `tmx` when you want a tmux session:
 - Session names use the directory name plus a short path hash to avoid collisions
 - On remote hosts, start tmux there manually if you want sessions/popups
 
-- `Alt+o`: open OpenCode in a floating popup (requires tmux `display-popup`, tmux >= 3.2)
-- In the popup: `Alt+c` hides the popup (OpenCode keeps running; press `Alt+o` again to reopen)
 - `Alt+p`: open Codex in a floating popup
 - In the popup: `Alt+c` hides the popup (Codex keeps running; press `Alt+p` again to reopen)
 - `Alt+b`: open Claude in a floating popup
@@ -128,7 +114,7 @@ New terminals open as a normal shell. Use `tmx` when you want a tmux session:
 - In the popup: `Alt+c` closes the popup; `q` closes Yazi and the popup
 - `Alt+f`: open a file fuzzy finder (fzf) in a popup; `Enter` opens the selection in `$EDITOR` in the original pane
 
-OpenCode/Codex/Claude popups are isolated per tmux session (so you can have multiple running at once across sessions). Yazi and fzf are short-lived popups.
+Codex/Claude popups are isolated per tmux session (so you can have multiple running at once across sessions). Yazi and fzf are short-lived popups.
 Yazi uses the same popup path locally and inside an `ssht` remote shell.
 
-These popups need the underlying tools installed on that machine (`opencode`, `codex`, `claude`, `yazi`, `fzf`; `fd` is optional for the file picker).
+These popups need the underlying tools installed on that machine (`codex`, `claude`, `yazi`, `fzf`; `fd` is optional for the file picker).

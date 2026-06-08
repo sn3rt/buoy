@@ -37,12 +37,6 @@ safe_name() {
   printf '%.32s' "$value"
 }
 
-sql_quote() {
-  local value="$1"
-  value="${value//\'/\'\'}"
-  printf "%s" "$value"
-}
-
 resolve_login_shell() {
   local shell_path="${SHELL:-}"
 
@@ -65,20 +59,6 @@ build_shell_command() {
 
   local IFS=' '
   printf 'exec %s' "${quoted[*]}"
-}
-
-resolve_opencode_session() {
-  local db_path sql rows=()
-
-  db_path="$(opencode db path 2>/dev/null || true)"
-  [[ -n "$db_path" ]] || return 0
-
-  sql="select id from session where directory = '$(sql_quote "$cwd")' and time_archived is null order by time_updated desc limit 1;"
-
-  mapfile -t rows < <(sqlite3 "$db_path" "$sql" 2>/dev/null || true)
-  if [[ ${#rows[@]} -gt 0 && -n "${rows[0]}" ]]; then
-    printf '%s\n' "${rows[0]}"
-  fi
 }
 
 resolve_claude_session() {
@@ -126,15 +106,6 @@ if [[ $# -gt 0 ]]; then
     printf 'cwd: %s\n' "$cwd" >&2
     wait_for_close
     exit 127
-  fi
-fi
-
-if [[ $# -gt 0 && "$1" == "opencode" ]]; then
-  opencode_session="$(resolve_opencode_session)"
-  if [[ -n "$opencode_session" ]]; then
-    set -- opencode --session "$opencode_session" "$cwd"
-  else
-    set -- opencode "$cwd"
   fi
 fi
 

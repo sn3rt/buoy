@@ -80,12 +80,6 @@ link_item ".config/snert-logo" "$HOME/.config/snert-logo"
 # tmux reads ~/.tmux.conf on older versions
 link_item ".tmux.conf" "$HOME/.tmux.conf"
 
-# OpenCode: link config + plugin manifests, keep node_modules local
-mkdir -p "$HOME/.config/opencode"
-link_item ".config/opencode/opencode.json" "$HOME/.config/opencode/opencode.json"
-link_item ".config/opencode/package.json" "$HOME/.config/opencode/package.json"
-link_item ".config/opencode/bun.lock" "$HOME/.config/opencode/bun.lock"
-
 # Secrets live outside git
 mkdir -p "$HOME/.config/secrets"
 if [[ ! -f "$HOME/.config/secrets/.zshenv" ]]; then

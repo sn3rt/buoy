@@ -47,11 +47,6 @@ open_popup() {
   popup_args=(-E -w 90% -h 90% -d "$session_path")
 
   case "$kind" in
-    opencode)
-      local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" opencode "$agent_conf" opencode "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" opencode)"
-      open_tmux_command "OpenCode" "$cmd"
-      ;;
     codex)
       local cmd
       cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$agent_conf" codex "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" codex)"
