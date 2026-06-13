@@ -64,7 +64,17 @@ link_item ".scripts" "$HOME/.scripts"
 
 # Local commands
 link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
-link_item ".local/bin/ssht" "$HOME/.local/bin/ssht"
+legacy_cmd="$(printf 's%s' 'sht')"
+legacy_link="$HOME/.local/bin/$legacy_cmd"
+legacy_repo_link="$REPO_ROOT/.local/bin/$legacy_cmd"
+if [[ -L "$legacy_link" ]]; then
+  legacy_target="$(abspath "$legacy_link")"
+  legacy_repo_target="$(abspath "$legacy_repo_link")"
+  if [[ "$legacy_target" == "$legacy_repo_target" || ! -e "$legacy_link" ]]; then
+    rm "$legacy_link"
+  fi
+fi
+link_item ".local/bin/nomad" "$HOME/.local/bin/nomad"
 
 # Terminal tool configs
 link_item ".config/buoy-theme" "$HOME/.config/buoy-theme"

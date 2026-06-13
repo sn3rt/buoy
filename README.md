@@ -47,10 +47,12 @@ credentials.
 
 ## Temporary remote shell
 
-If you want to SSH into another machine with these buoy config for just that session, use `ssht` instead of installing the repo there:
+If you want to SSH into another machine with these buoy config for just that session, use `nomad` instead of installing the repo there:
 
 ```bash
-ssht user@host
+nomad user@host
+nomad --waypipe user@host
+nomad -wp user@host
 ```
 
 What it does:
@@ -63,11 +65,13 @@ What it does:
 Notes:
 
 - the remote host needs `zsh`, `tar`, and `mktemp`
-- `ssht` is for an interactive shell only; it does not support passing a remote command
-- `ssht` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
+- `nomad` is for an interactive shell only; it does not support passing a remote command
+- `nomad` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
+- `nomad --waypipe` / `nomad -wp` starts the final shell through Waypipe so Wayland GUI apps launched remotely can open locally
+- Waypipe mode requires `waypipe` on both the local and remote machine
 - config, cache, and logs written during the session stay in that temporary directory and are removed when the session ends
-- tools installed with `./install-tools.sh` inside an `ssht` session go into the same temporary directory and are removed when the session ends
-- set `DOTFILES_DIR` if you want `ssht` to use a repo path other than the one inferred from the script location
+- tools installed with `./install-tools.sh` inside a `nomad` session go into the same temporary directory and are removed when the session ends
+- set `DOTFILES_DIR` if you want `nomad` to use a repo path other than the one inferred from the script location
 
 ## Secrets
 
@@ -115,6 +119,6 @@ New terminals open as a normal shell. Use `tmx` when you want a tmux session:
 - `Alt+f`: open a file fuzzy finder (fzf) in a popup; `Enter` opens the selection in `$EDITOR` in the original pane
 
 Codex/Claude popups are isolated per tmux session (so you can have multiple running at once across sessions). Yazi and fzf are short-lived popups.
-Yazi uses the same popup path locally and inside an `ssht` remote shell.
+Yazi uses the same popup path locally and inside a `nomad` remote shell.
 
 These popups need the underlying tools installed on that machine (`codex`, `claude`, `yazi`, `fzf`; `fd` is optional for the file picker).

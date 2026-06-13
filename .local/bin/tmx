@@ -1,2 +1,19 @@
 #!/usr/bin/env bash
-exec bash "$HOME/.config/tmux/tmx" "$@"
+set -euo pipefail
+
+xdg_tmx="${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmx"
+home_tmx="$HOME/.config/tmux/tmx"
+
+if [[ -f "$xdg_tmx" ]]; then
+  exec bash "$xdg_tmx" "$@"
+fi
+
+if [[ -f "$home_tmx" ]]; then
+  exec bash "$home_tmx" "$@"
+fi
+
+printf 'tmx: script not found: %s\n' "$xdg_tmx" >&2
+if [[ "$home_tmx" != "$xdg_tmx" ]]; then
+  printf 'tmx: fallback also missing: %s\n' "$home_tmx" >&2
+fi
+exit 127

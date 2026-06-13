@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf 'usage: nomad [--waypipe|-wp] [ssh options] host\n' >&2
+}
+
+log() {
+  printf 'nomad: %s\n' "$*" >&2
+}
+
+resolve_repo_root() {
+  local script_path script_dir repo_root
+
+  if [[ -n "${DOTFILES_DIR-}" ]]; then
+    repo_root="$DOTFILES_DIR"
+  else
+    script_path="$(readlink -f "${BASH_SOURCE[0]}")"
+    script_dir="$(dirname "$script_path")"
+    repo_root="$(cd "$script_dir/../.." && pwd)"
+  fi
+
+  if [[ "$repo_root" == "$HOME" ]]; then
+    printf 'nomad: refusing to use %s as dotfiles root\n' "$HOME" >&2
+    printf 'nomad: set DOTFILES_DIR explicitly if your repo really lives elsewhere\n' >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$repo_root/.zshrc" || ! -d "$repo_root/.config" ]]; then
+    printf 'nomad: dotfiles root does not look valid: %s\n' "$repo_root" >&2
+    printf 'nomad: expected at least %s and %s\n' "$repo_root/.zshrc" "$repo_root/.config" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$repo_root"
+}
+
+run_remote_shell() {
+  local repo_root ssh_dest socket tmp_remote status remote_zsh remote_command
+  local use_waypipe=0
+  local -a ssh_args=()
+
+  repo_root="$(resolve_repo_root)"
+
+  if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+  fi
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --waypipe|-wp)
+        use_waypipe=1
+        shift
+        ;;
+      --)
+        printf 'nomad: remote commands are not supported; this always launches your dotfiles shell\n' >&2
+        exit 1
+        ;;
+      -[BbcDEeFIiJlmOopQRSWw])
+        if [[ $# -lt 2 ]]; then
+          usage
+          exit 1
+        fi
+        ssh_args+=("$1" "$2")
+        shift 2
+        ;;
+      -* )
+        ssh_args+=("$1")
+        shift
+        ;;
+      *)
+        ssh_dest="$1"
+        shift
+        if [[ $# -gt 0 ]]; then
+          printf 'nomad: remote commands are not supported; this always launches your dotfiles shell\n' >&2
+          exit 1
+        fi
+        break
+        ;;
+    esac
+  done
+
+  if [[ -z "${ssh_dest-}" ]]; then
+    usage
+    exit 1
+  fi
+
+  if [[ $use_waypipe -eq 1 ]] && ! command -v waypipe >/dev/null 2>&1; then
+    printf 'nomad: waypipe mode requires local waypipe\n' >&2
+    exit 1
+  fi
+
+  socket="$(mktemp -u "${TMPDIR:-/tmp}/nomad-socket.XXXXXXXX")"
+  cleanup_local() {
+    ssh -S "$socket" -O exit "$ssh_dest" >/dev/null 2>&1 || true
+    rm -f "$socket"
+  }
+  trap cleanup_local EXIT
+
+  log "using dotfiles repo $repo_root"
+  log "opening control connection to $ssh_dest"
+  ssh -MNf -o ControlMaster=yes -o ControlPersist=yes -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest"
+
+  log 'creating remote temp directory'
+  tmp_remote="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'mktemp -d "${TMPDIR:-/tmp}/nomad.XXXXXXXX"')"
+
+  log "streaming dotfiles to $ssh_dest:$tmp_remote"
+  tar --exclude-vcs -C "$repo_root" -cf - . | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "tar -C $(printf '%q' "$tmp_remote") -xf -"
+
+  log 'resolving remote zsh path'
+  remote_zsh="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'command -v zsh')"
+
+  if [[ -z "$remote_zsh" ]]; then
+    printf 'nomad: zsh is not installed on the remote host\n' >&2
+    exit 1
+  fi
+
+  if [[ $use_waypipe -eq 1 ]]; then
+    log 'checking remote waypipe'
+    if ! ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'command -v waypipe >/dev/null 2>&1'; then
+      printf 'nomad: waypipe mode requires waypipe on the remote host\n' >&2
+      exit 1
+    fi
+  fi
+
+  status=0
+  remote_command="export SHELL=$(printf '%q' "$remote_zsh") DOTS=$(printf '%q' "$tmp_remote") ZDOTDIR=$(printf '%q' "$tmp_remote") XDG_BIN_HOME=$(printf '%q' "$tmp_remote/.local/bin") XDG_CONFIG_HOME=$(printf '%q' "$tmp_remote/.config") XDG_DATA_HOME=$(printf '%q' "$tmp_remote/.local/share") XDG_STATE_HOME=$(printf '%q' "$tmp_remote/.local/state") XDG_CACHE_HOME=$(printf '%q' "$tmp_remote/.cache") PATH=$(printf '%q' "$tmp_remote/.local/bin"):\$PATH; $(printf '%q' "$remote_zsh") -l; status=\$?; rm -rf $(printf '%q' "$tmp_remote"); exit \$status"
+
+  if [[ $use_waypipe -eq 1 ]]; then
+    log 'starting remote zsh with temporary dotfiles through waypipe'
+    waypipe ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_command" || status=$?
+  else
+    log 'starting remote zsh with temporary dotfiles'
+    ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_command" || status=$?
+  fi
+
+  if [[ $status -eq 0 ]]; then
+    log 'remote session ended; temporary dotfiles cleaned up'
+  else
+    log "remote session exited with status $status"
+  fi
+
+  return "$status"
+}
+
+run_remote_shell "$@"
