@@ -2,3 +2,4 @@
 **/node_modules/
 .dotfiles-backup/
 CLAUDE.md
+nvim.log
