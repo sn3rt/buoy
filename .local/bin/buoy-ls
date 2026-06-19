@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+mode="${1:-ls}"
+case "$mode" in
+  ls|ll) shift ;;
+  *) mode="$(basename "$0")" ;;
+esac
+
 if command -v eza >/dev/null 2>&1; then
-  exec eza --tree --level=3 -la --git --ignore-glob=".git" "$@"
+  case "$mode" in
+    ll|buoy-ll) exec eza -la --git --ignore-glob=".git" "$@" ;;
+    *) exec eza --tree --level=3 -la --git --ignore-glob=".git" "$@" ;;
+  esac
 fi
 
 ls_bin="$(command -v ls)"
