@@ -17,9 +17,10 @@ fi
 
 # Source zinit
 source "${ZINIT_HOME}/zinit.zsh"
-export PATH="${XDG_BIN_HOME:-$HOME/.local/bin}:$PATH"
+[[ -d "$HOME/.nix-profile/bin" ]] && export PATH="$HOME/.nix-profile/bin:$PATH"
 export PATH="$HOME/.cargo/bin:$PATH"
-export PATH="$HOME/.nix-profile/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+[[ -n "${NOMAD_BIN-}" ]] && export PATH="$NOMAD_BIN:$PATH"
 export EDITOR="nvim"
 
 # Optional secrets (not tracked in dotfiles)
@@ -71,8 +72,8 @@ zstyle ':completion:*' use-cache on
 zstyle ':completion:*' cache-path ~/.zcompdump
 
 # Aliases
-alias ls='eza --tree --level=3 -la --git --ignore-glob=".git"'
-alias ll='eza -la --git --ignore-glob=".git"'
+alias ls='buoy-ls'
+alias ll='buoy-ll'
 alias sudo='sudo '
 
 alias vi='nvim'

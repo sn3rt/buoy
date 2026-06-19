@@ -135,6 +135,7 @@ run_remote_shell() {
     printf 'export SHELL=%s\n' "$(printf '%q' "$remote_zsh")"
     printf 'export DOTS=%s\n' "$(printf '%q' "$tmp_remote")"
     printf 'export ZDOTDIR=%s\n' "$(printf '%q' "$tmp_remote")"
+    printf 'export NOMAD_BIN=%s\n' "$(printf '%q' "$tmp_remote/.local/bin")"
     printf 'export XDG_BIN_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/bin")"
     printf 'export XDG_CONFIG_HOME=%s\n' "$(printf '%q' "$tmp_remote/.config")"
     printf 'export XDG_DATA_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/share")"

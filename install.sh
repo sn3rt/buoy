@@ -64,6 +64,8 @@ link_item ".scripts" "$HOME/.scripts"
 
 # Local commands
 link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
+link_item ".local/bin/buoy-ls" "$HOME/.local/bin/buoy-ls"
+link_item ".local/bin/buoy-ll" "$HOME/.local/bin/buoy-ll"
 legacy_cmd="$(printf 's%s' 'sht')"
 legacy_link="$HOME/.local/bin/$legacy_cmd"
 legacy_repo_link="$REPO_ROOT/.local/bin/$legacy_cmd"

@@ -3,8 +3,14 @@ add_newline = false
 
 # Prompt format
 format = """
-[](black)$username$hostname[](bg:bright-black fg:black)$directory[](fg:bright-black bg:cyan)$git_branch$git_status[](fg:cyan bg:none)$character
+[](black)${custom.nomad}$username$hostname[](bg:bright-black fg:black)$directory[](fg:bright-black bg:cyan)$git_branch$git_status[](fg:cyan bg:none)$character
 """
+
+# Nomad session marker
+[custom.nomad]
+when = 'test -n "$NOMAD_BIN"'
+format = "[◆ ]($style)"
+style = "bg:black fg:bright-cyan bold"
 
 # Username module
 [username]
@@ -40,4 +46,3 @@ format = "[$all_status]($style)"
 success_symbol = "[❯](green)"
 error_symbol = "[❯](red)"
 vicmd_symbol = "[❮](blue)"
-
