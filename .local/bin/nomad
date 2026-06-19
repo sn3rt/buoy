@@ -36,7 +36,7 @@ resolve_repo_root() {
 }
 
 run_remote_shell() {
-  local repo_root ssh_dest socket tmp_remote status remote_zsh remote_command
+  local repo_root ssh_dest socket tmp_remote status remote_zsh remote_launcher
   local use_waypipe=0
   local -a ssh_args=()
 
@@ -93,8 +93,12 @@ run_remote_shell() {
 
   socket="$(mktemp -u "${TMPDIR:-/tmp}/nomad-socket.XXXXXXXX")"
   cleanup_local() {
-    ssh -S "$socket" -O exit "$ssh_dest" >/dev/null 2>&1 || true
-    rm -f "$socket"
+    if [[ -n "${socket-}" && -n "${ssh_dest-}" ]]; then
+      ssh -S "$socket" -O exit "$ssh_dest" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "${socket-}" ]]; then
+      rm -f "$socket"
+    fi
   }
   trap cleanup_local EXIT
 
@@ -124,15 +128,33 @@ run_remote_shell() {
     fi
   fi
 
+  log 'writing remote launcher'
+  remote_launcher="$tmp_remote/.nomad-shell"
+  {
+    printf '#!/usr/bin/env sh\n'
+    printf 'export SHELL=%s\n' "$(printf '%q' "$remote_zsh")"
+    printf 'export DOTS=%s\n' "$(printf '%q' "$tmp_remote")"
+    printf 'export ZDOTDIR=%s\n' "$(printf '%q' "$tmp_remote")"
+    printf 'export XDG_BIN_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/bin")"
+    printf 'export XDG_CONFIG_HOME=%s\n' "$(printf '%q' "$tmp_remote/.config")"
+    printf 'export XDG_DATA_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/share")"
+    printf 'export XDG_STATE_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/state")"
+    printf 'export XDG_CACHE_HOME=%s\n' "$(printf '%q' "$tmp_remote/.cache")"
+    printf 'export PATH=%s:$PATH\n' "$(printf '%q' "$tmp_remote/.local/bin")"
+    printf '%s -il\n' "$(printf '%q' "$remote_zsh")"
+    printf 'nomad_status=$?\n'
+    printf 'rm -rf %s\n' "$(printf '%q' "$tmp_remote")"
+    printf 'exit $nomad_status\n'
+  } | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "cat > $(printf '%q' "$remote_launcher") && chmod +x $(printf '%q' "$remote_launcher")"
+
   status=0
-  remote_command="export SHELL=$(printf '%q' "$remote_zsh") DOTS=$(printf '%q' "$tmp_remote") ZDOTDIR=$(printf '%q' "$tmp_remote") XDG_BIN_HOME=$(printf '%q' "$tmp_remote/.local/bin") XDG_CONFIG_HOME=$(printf '%q' "$tmp_remote/.config") XDG_DATA_HOME=$(printf '%q' "$tmp_remote/.local/share") XDG_STATE_HOME=$(printf '%q' "$tmp_remote/.local/state") XDG_CACHE_HOME=$(printf '%q' "$tmp_remote/.cache") PATH=$(printf '%q' "$tmp_remote/.local/bin"):\$PATH; $(printf '%q' "$remote_zsh") -l; status=\$?; rm -rf $(printf '%q' "$tmp_remote"); exit \$status"
 
   if [[ $use_waypipe -eq 1 ]]; then
     log 'starting remote zsh with temporary dotfiles through waypipe'
-    waypipe ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_command" || status=$?
+    waypipe ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_launcher" || status=$?
   else
     log 'starting remote zsh with temporary dotfiles'
-    ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_command" || status=$?
+    ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_launcher" || status=$?
   fi
 
   if [[ $status -eq 0 ]]; then
@@ -141,6 +163,8 @@ run_remote_shell() {
     log "remote session exited with status $status"
   fi
 
+  cleanup_local
+  trap - EXIT
   return "$status"
 }
 

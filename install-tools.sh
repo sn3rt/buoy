@@ -192,6 +192,69 @@ install_btop() {
   install_bin "$dir/btop/bin/btop"
 }
 
+check_tmux_build_deps() {
+  local -a missing=()
+
+  if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+    missing+=("C compiler")
+  fi
+
+  if ! command -v make >/dev/null 2>&1; then
+    missing+=("make")
+  fi
+
+  if ! command -v pkg-config >/dev/null 2>&1; then
+    missing+=("pkg-config")
+  else
+    if ! pkg-config --exists libevent; then
+      missing+=("libevent")
+    fi
+    if ! pkg-config --exists ncursesw && ! pkg-config --exists ncurses; then
+      missing+=("ncurses")
+    fi
+  fi
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    printf 'install-tools: tmux build dependencies missing: %s\n' "${missing[*]}" >&2
+    printf 'install-tools: on Ubuntu/Debian install them with:\n' >&2
+    printf '  sudo apt install build-essential pkg-config libevent-dev libncurses-dev\n' >&2
+    return 1
+  fi
+}
+
+install_tmux() {
+  local version="$1" arch="$2"
+  local asset="tmux-${version}.tar.gz"
+  local url="https://github.com/tmux/tmux/releases/download/${version}/${asset}"
+  local dir src dest jobs
+
+  check_tmux_build_deps
+  dir="$(unpack_release tmux "$url")"
+  src="$dir/tmux-${version}"
+  dest="$TOOL_ROOT/tmux-${version}-${arch}"
+
+  if [[ ! -x "$src/configure" ]]; then
+    printf 'install-tools: tmux configure script not found: %s\n' "$src/configure" >&2
+    return 1
+  fi
+
+  if command -v nproc >/dev/null 2>&1; then
+    jobs="$(nproc)"
+  else
+    jobs=1
+  fi
+
+  mkdir -p "$TOOL_ROOT"
+  rm -rf "$dest"
+  (
+    cd "$src"
+    ./configure --prefix="$dest"
+    make -j "$jobs"
+    make install
+  )
+  link_bin "$dest/bin/tmux" tmux
+}
+
 install_tree_sitter() {
   local version="$1" arch="$2"
   local tree_sitter_arch
@@ -219,6 +282,7 @@ dispatch_install() {
     yazi)     install_yazi     "$version" "$arch" ;;
     atuin)    install_atuin    "$version" "$arch" ;;
     btop)     install_btop     "$version" "$arch" ;;
+    tmux)     install_tmux     "$version" "$arch" ;;
     tree_sitter) install_tree_sitter "$version" "$arch" ;;
     *)
       printf 'install-tools: unknown tool: %s\n' "$tool" >&2
@@ -267,7 +331,7 @@ main() {
     VERSIONS["$key"]="$val"
   done < <(parse_versions "$toml")
 
-  local -a TOOLS=(nvim starship fzf fd yazi atuin btop tree_sitter)
+  local -a TOOLS=(nvim starship fzf fd yazi atuin btop tmux tree_sitter)
 
   for tool in "${TOOLS[@]}"; do
     [[ -n "$only_tool" && "$tool" != "$only_tool" ]] && continue

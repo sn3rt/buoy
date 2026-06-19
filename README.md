@@ -22,7 +22,7 @@ It links config/scripts only. To install the tools themselves at the versions pi
 ./install-tools.sh
 ```
 
-This downloads binaries from GitHub releases into `~/.local/bin/`. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Neovim Treesitter parser builds also require a C compiler.
+This downloads pinned tools from GitHub releases into `~/.local/bin/`. Most tools use prebuilt binaries; tmux is built from source. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev`. Neovim Treesitter parser builds also require a C compiler.
 
 ## Shared team machines
 
