@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf 'usage: gt [-p|--push] "commit message"\n' >&2
+}
+
+push=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--push)
+      push=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      usage
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ $# -ne 1 || -z "${1//[[:space:]]/}" ]]; then
+  usage
+  exit 1
+fi
+
+message="$1"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  printf 'gt: not inside a git repository\n' >&2
+  exit 1
+fi
+
+git status --short
+git add .
+
+if git diff --cached --quiet --exit-code; then
+  printf 'gt: nothing to commit\n' >&2
+  exit 0
+fi
+
+git commit -m "$message"
+
+if [[ $push -eq 1 ]]; then
+  if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    git push
+  else
+    branch="$(git branch --show-current)"
+    if [[ -n "$branch" ]]; then
+      printf 'gt: no upstream configured; run: git push -u origin %s\n' "$branch" >&2
+    else
+      printf 'gt: no upstream configured and current branch could not be resolved\n' >&2
+    fi
+  fi
+fi

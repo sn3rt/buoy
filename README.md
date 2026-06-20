@@ -109,6 +109,11 @@ Neovim uses terminal palette slots instead of hardcoded hex colors, so live
 Kitty palette updates also affect Neovim. Running `:BuoyThemeReload` inside
 Neovim reapplies the highlight mappings if another colorscheme overwrites them.
 
+## Git helper
+
+Use `gt "message"` to run `git status --short`, `git add .`, and `git commit -m "message"`.
+Use `gt -p "message"` to push after committing when the current branch already has an upstream.
+
 ## tmux
 
 Config lives in `~/.config/tmux/tmux.conf` and is also linked to `~/.tmux.conf` for compatibility.
