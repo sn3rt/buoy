@@ -127,7 +127,15 @@ outer_session_name="$(safe_name "$outer_session_name")"
 
 socket_hash="$(short_hash "${outer_socket_path}|${outer_sid}|${outer_session_name}|${cwd}")"
 socket_name="${name}-${outer_session_name}-${socket_hash}"
+config_dir="$(cd "$(dirname "$conf")" && pwd)"
 
+env -u TMUX tmux -L "$socket_name" start-server 2>/dev/null || true
+if [[ -n "$outer_socket_path" ]]; then
+  env -u TMUX tmux -L "$socket_name" set-environment -g BUOY_OUTER_TMUX_SOCKET "$outer_socket_path" 2>/dev/null || true
+else
+  env -u TMUX tmux -L "$socket_name" set-environment -gu BUOY_OUTER_TMUX_SOCKET 2>/dev/null || true
+fi
+env -u TMUX tmux -L "$socket_name" set-environment -g BUOY_TMUX_CONFIG_DIR "$config_dir" 2>/dev/null || true
 env -u TMUX tmux -L "$socket_name" source-file "$conf" 2>/dev/null || true
 
 if [[ $# -eq 0 ]]; then
