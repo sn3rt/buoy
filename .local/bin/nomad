@@ -35,8 +35,35 @@ resolve_repo_root() {
   printf '%s\n' "$repo_root"
 }
 
+session_state_file() {
+  local repo_root=$1 ssh_dest=$2 state_dir key_source hash
+  shift 2
+
+  state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/nomad"
+  mkdir -p "$state_dir"
+
+  key_source="$repo_root"$'\n'"$ssh_dest"
+  while [[ $# -gt 0 ]]; do
+    key_source+=$'\n'"$1"
+    shift
+  done
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    hash="$(printf '%s' "$key_source" | sha256sum)"
+    hash="${hash%% *}"
+  elif command -v shasum >/dev/null 2>&1; then
+    hash="$(printf '%s' "$key_source" | shasum -a 256)"
+    hash="${hash%% *}"
+  else
+    hash="$(printf '%s' "$key_source" | cksum)"
+    hash="${hash// /-}"
+  fi
+
+  printf '%s/%s\n' "$state_dir" "$hash"
+}
+
 run_remote_shell() {
-  local repo_root ssh_dest socket tmp_remote status remote_zsh remote_launcher
+  local repo_root ssh_dest socket tmp_remote status remote_zsh remote_launcher state_file
   local use_waypipe=0
   local -a ssh_args=()
 
@@ -94,7 +121,7 @@ run_remote_shell() {
   socket="$(mktemp -u "${TMPDIR:-/tmp}/nomad-socket.XXXXXXXX")"
   cleanup_local() {
     if [[ -n "${socket-}" && -n "${ssh_dest-}" ]]; then
-      ssh -S "$socket" -O exit "$ssh_dest" >/dev/null 2>&1 || true
+      ssh -S "$socket" -O exit "${ssh_args[@]}" "$ssh_dest" >/dev/null 2>&1 || true
     fi
     if [[ -n "${socket-}" ]]; then
       rm -f "$socket"
@@ -106,11 +133,23 @@ run_remote_shell() {
   log "opening control connection to $ssh_dest"
   ssh -MNf -o ControlMaster=yes -o ControlPersist=yes -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest"
 
-  log 'creating remote temp directory'
-  tmp_remote="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'mktemp -d "${TMPDIR:-/tmp}/nomad.XXXXXXXX"')"
+  state_file="$(session_state_file "$repo_root" "$ssh_dest" "${ssh_args[@]}")"
+  tmp_remote=""
+  if [[ -f "$state_file" ]]; then
+    IFS= read -r tmp_remote < "$state_file" || tmp_remote=""
+  fi
 
-  log "streaming dotfiles to $ssh_dest:$tmp_remote"
-  tar --exclude-vcs -C "$repo_root" -cf - . | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "tar -C $(printf '%q' "$tmp_remote") -xf -"
+  if [[ -n "$tmp_remote" ]] && ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "test -d $(printf '%q' "$tmp_remote") && test -f $(printf '%q' "$tmp_remote/.zshrc")" >/dev/null 2>&1; then
+    log "reusing remote temp directory $tmp_remote"
+  else
+    [[ -n "$tmp_remote" ]] && log "saved remote temp directory is gone; creating a new one"
+    log 'creating remote temp directory'
+    tmp_remote="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'mktemp -d "${TMPDIR:-/tmp}/nomad.XXXXXXXX"')"
+
+    log "streaming dotfiles to $ssh_dest:$tmp_remote"
+    tar --exclude-vcs -C "$repo_root" -cf - . | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "tar -C $(printf '%q' "$tmp_remote") -xf -"
+    printf '%s\n' "$tmp_remote" > "$state_file"
+  fi
 
   log 'resolving remote zsh path'
   remote_zsh="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'command -v zsh')"
@@ -144,9 +183,23 @@ run_remote_shell() {
     printf 'export PATH=%s:$PATH\n' "$(printf '%q' "$tmp_remote/.local/bin")"
     printf '%s -il\n' "$(printf '%q' "$remote_zsh")"
     printf 'nomad_status=$?\n'
-    printf 'rm -rf %s\n' "$(printf '%q' "$tmp_remote")"
     printf 'exit $nomad_status\n'
   } | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "cat > $(printf '%q' "$remote_launcher") && chmod +x $(printf '%q' "$remote_launcher")"
+
+  {
+    printf '\n# nomad helper begin\n'
+    printf 'damon() {\n'
+    printf '  local nomad_dir="${DOTS-}"\n'
+    printf '  if [[ -z "$nomad_dir" || ! -f "$nomad_dir/.nomad-shell" ]]; then\n'
+    printf '    print -u2 "damon: not inside a nomad temp environment"\n'
+    printf '    return 1\n'
+    printf '  fi\n'
+    printf '  cd "${HOME:-/}" 2>/dev/null || cd / 2>/dev/null || true\n'
+    printf '  command rm -rf -- "$nomad_dir"\n'
+    printf '  exit 0\n'
+    printf '}\n'
+    printf '# nomad helper end\n'
+  } | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "grep -q '^# nomad helper begin$' $(printf '%q' "$tmp_remote/.zshrc") 2>/dev/null || cat >> $(printf '%q' "$tmp_remote/.zshrc")"
 
   status=0
 
@@ -158,10 +211,19 @@ run_remote_shell() {
     ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_launcher" || status=$?
   fi
 
-  if [[ $status -eq 0 ]]; then
-    log 'remote session ended; temporary dotfiles cleaned up'
+  if ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "test -d $(printf '%q' "$tmp_remote")" >/dev/null 2>&1; then
+    if [[ $status -eq 0 ]]; then
+      log 'remote session ended; temporary dotfiles kept'
+    else
+      log "remote session exited with status $status; temporary dotfiles kept"
+    fi
   else
-    log "remote session exited with status $status"
+    rm -f "$state_file"
+    if [[ $status -eq 0 ]]; then
+      log 'remote session ended; temporary dotfiles removed'
+    else
+      log "remote session exited with status $status; temporary dotfiles removed"
+    fi
   fi
 
   cleanup_local

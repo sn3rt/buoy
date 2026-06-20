@@ -22,7 +22,7 @@ It links config/scripts only. To install the tools themselves at the versions pi
 ./install-tools.sh
 ```
 
-This downloads pinned tools from GitHub releases into `~/.local/bin/`. Most tools use prebuilt binaries; tmux is built from source. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev`. Neovim Treesitter parser builds also require a C compiler.
+This downloads pinned tools from GitHub releases into `~/.local/bin/`, including `eza` for the `ls` wrapper. Most tools use prebuilt binaries; tmux is built from source. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev`. Neovim Treesitter parser builds also require a C compiler.
 
 ## Shared team machines
 
@@ -60,7 +60,7 @@ What it does:
 - packs this repo locally and streams it to the remote host
 - unpacks into a temporary directory on the remote host
 - starts `zsh` with `ZDOTDIR` and the XDG paths pointed at that temporary copy
-- removes the temporary directory again when the session exits
+- reuses that temporary directory on later `nomad` connections to the same host
 
 Notes:
 
@@ -68,9 +68,11 @@ Notes:
 - `nomad` is for an interactive shell only; it does not support passing a remote command
 - `nomad` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
 - `nomad --waypipe` / `nomad -wp` starts the final shell through Waypipe so Wayland GUI apps launched remotely can open locally
+- `wp user@host` is a shortcut for `waypipe ssh user@host` without nomad's temporary dotfiles
 - Waypipe mode requires `waypipe` on both the local and remote machine
-- config, cache, and logs written during the session stay in that temporary directory and are removed when the session ends
-- tools installed with `./install-tools.sh` inside a `nomad` session go into the same temporary directory and are removed when the session ends
+- normal `exit` keeps the temporary directory alive so another terminal can reconnect to it
+- run `damon` inside the `nomad` shell to remove the temporary dotfiles and leave the SSH session
+- config, cache, logs, and tools installed with `./install-tools.sh` stay in that temporary directory until `damon`, reboot, or remote `/tmp` cleanup removes it
 - set `DOTFILES_DIR` if you want `nomad` to use a repo path other than the one inferred from the script location
 
 ## Secrets

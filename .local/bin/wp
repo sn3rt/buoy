@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v waypipe >/dev/null 2>&1; then
+  printf 'wp: waypipe not found\n' >&2
+  exit 127
+fi
+
+exec waypipe ssh "$@"

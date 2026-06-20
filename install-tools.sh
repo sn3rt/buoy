@@ -163,6 +163,25 @@ install_fd() {
   install_bin "$dir/fd-v${version}-${arch}-unknown-linux-musl/fd"
 }
 
+install_eza() {
+  local version="$1" arch="$2"
+  local eza_target
+  case "$arch" in
+    x86_64)  eza_target="x86_64-unknown-linux-musl" ;;
+    aarch64) eza_target="aarch64-unknown-linux-gnu_no_libgit" ;;
+  esac
+  local asset="eza_${eza_target}.tar.gz"
+  local url="https://github.com/eza-community/eza/releases/download/v${version}/${asset}"
+  local dir bin
+  dir="$(unpack_release eza "$url")"
+  bin="$(find "$dir" -type f -name eza | head -n 1)"
+  if [[ -z "$bin" ]]; then
+    printf 'install-tools: eza binary not found in %s\n' "$asset" >&2
+    return 1
+  fi
+  install_bin "$bin" eza
+}
+
 install_yazi() {
   local version="$1" arch="$2"
   local asset="yazi-${arch}-unknown-linux-musl.zip"
@@ -279,6 +298,7 @@ dispatch_install() {
     starship) install_starship "$version" "$arch" ;;
     fzf)      install_fzf      "$version" "$arch" ;;
     fd)       install_fd       "$version" "$arch" ;;
+    eza)      install_eza      "$version" "$arch" ;;
     yazi)     install_yazi     "$version" "$arch" ;;
     atuin)    install_atuin    "$version" "$arch" ;;
     btop)     install_btop     "$version" "$arch" ;;
@@ -331,7 +351,7 @@ main() {
     VERSIONS["$key"]="$val"
   done < <(parse_versions "$toml")
 
-  local -a TOOLS=(nvim starship fzf fd yazi atuin btop tmux tree_sitter)
+  local -a TOOLS=(nvim starship fzf fd eza yazi atuin btop tmux tree_sitter)
 
   for tool in "${TOOLS[@]}"; do
     [[ -n "$only_tool" && "$tool" != "$only_tool" ]] && continue
