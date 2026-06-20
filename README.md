@@ -22,7 +22,15 @@ It links config/scripts only. To install the tools themselves at the versions pi
 ./install-tools.sh
 ```
 
-This downloads pinned tools from GitHub releases into `~/.local/bin/`, including `eza` for the `ls` wrapper. Most tools use prebuilt binaries; tmux is built from source. Skips tools already installed; use `--update` to force re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev`. Neovim Treesitter parser builds also require a C compiler.
+This downloads pinned tools from GitHub releases into `~/.local/bin/`, including `eza` for the `ls` wrapper. Most tools use prebuilt binaries; tmux is built from source. Skips tools already installed at the pinned version; use `--force` to re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev`. Neovim Treesitter parser builds also require a C compiler.
+
+To check whether newer pinned tool versions are available:
+
+```bash
+./update-versions.sh          # check all tools and ask before updating versions.toml
+./update-versions.sh --write  # update versions.toml without asking
+./install-tools.sh --update
+```
 
 ## Shared team machines
 

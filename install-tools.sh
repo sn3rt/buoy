@@ -6,9 +6,10 @@ set -euo pipefail
 #
 # Usage:
 #   ./install-tools.sh              # install all missing tools
-#   ./install-tools.sh --update     # re-download all tools
+#   ./install-tools.sh --update     # install missing/outdated tools
+#   ./install-tools.sh --force      # re-download all tools
 #   ./install-tools.sh nvim         # install one tool
-#   ./install-tools.sh --update fzf # re-download one tool
+#   ./install-tools.sh --force fzf  # re-download one tool
 #
 # Requires: curl, tar, awk, gzip, bzip2, unzip (unzip only needed for yazi)
 # Installs to: ${XDG_BIN_HOME:-~/.local/bin}/
@@ -95,10 +96,14 @@ unpack_release() {
 install_bin() {
   local src="$1"
   local name="${2:-$(basename "$src")}"
+  local target tmp
   mkdir -p "$INSTALL_DIR"
-  cp "$src" "$INSTALL_DIR/$name"
-  chmod +x "$INSTALL_DIR/$name"
-  log "  installed $INSTALL_DIR/$name"
+  target="$INSTALL_DIR/$name"
+  tmp="$INSTALL_DIR/.$name.tmp.$$"
+  cp "$src" "$tmp"
+  chmod +x "$tmp"
+  mv -f "$tmp" "$target"
+  log "  installed $target"
 }
 
 link_bin() {
@@ -204,11 +209,21 @@ install_atuin() {
 
 install_btop() {
   local version="$1" arch="$2"
-  local asset="btop-${arch}-linux-musl.tbz"
+  local btop_target
+  case "$arch" in
+    x86_64)  btop_target="x86_64-unknown-linux-musl" ;;
+    aarch64) btop_target="aarch64-unknown-linux-musl" ;;
+  esac
+  local asset="btop-${btop_target}.tar.gz"
   local url="https://github.com/aristocratos/btop/releases/download/v${version}/${asset}"
-  local dir
+  local dir bin
   dir="$(unpack_release btop "$url")"
-  install_bin "$dir/btop/bin/btop"
+  bin="$(find "$dir" -type f -path '*/bin/btop' -o -type f -name btop | head -n 1)"
+  if [[ -z "$bin" ]]; then
+    printf 'install-tools: btop binary not found in %s\n' "$asset" >&2
+    return 1
+  fi
+  install_bin "$bin" btop
 }
 
 check_tmux_build_deps() {
@@ -311,26 +326,78 @@ dispatch_install() {
 }
 
 # ---------------------------------------------------------------------------
-# Skip logic
+# Version + skip logic
 
-is_installed() {
+tool_bin_name() {
   local tool="$1"
-  [[ "$tool" == "tree_sitter" ]] && tool="tree-sitter"
-  [[ -x "$INSTALL_DIR/$tool" ]] || command -v "$tool" >/dev/null 2>&1
+  case "$tool" in
+    tree_sitter) printf 'tree-sitter' ;;
+    *) printf '%s' "$tool" ;;
+  esac
+}
+
+installed_version() {
+  local tool="$1" bin output
+  bin="$(tool_bin_name "$tool")"
+
+  if [[ -x "$INSTALL_DIR/$bin" ]]; then
+    bin="$INSTALL_DIR/$bin"
+  elif command -v "$bin" >/dev/null 2>&1; then
+    bin="$(command -v "$bin")"
+  else
+    return 1
+  fi
+
+  case "$tool" in
+    nvim)
+      output="$("$bin" -v 2>/dev/null | head -n 1)"
+      output="${output#NVIM v}"
+      printf '%s\n' "${output%% *}"
+      ;;
+    starship|fd|atuin|tree_sitter)
+      "$bin" --version 2>/dev/null | awk 'NR==1 { print $2 }'
+      ;;
+    fzf)
+      "$bin" --version 2>/dev/null | awk 'NR==1 { print $1 }'
+      ;;
+    eza)
+      "$bin" -v 2>/dev/null | awk '/^v[0-9]/ { sub(/^v/, "", $1); print $1; exit }'
+      ;;
+    yazi)
+      "$bin" --version 2>/dev/null | awk 'NR==1 { print $2 }'
+      ;;
+    btop)
+      "$bin" --version 2>/dev/null | awk '
+        NR == 1 {
+          gsub(/\033\[[0-9;]*m/, "")
+          sub(/^btop version: /, "")
+          sub(/\+.*/, "")
+          print
+        }
+      '
+      ;;
+    tmux)
+      "$bin" -V 2>/dev/null | awk 'NR==1 { print $2 }'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------
 # Main
 
 main() {
-  local update=0
+  local force=0
   local only_tool=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --update|-u) update=1; shift ;;
+      --update|-u) shift ;;
+      --force|-f) force=1; shift ;;
       -*)
-        printf 'usage: install-tools.sh [--update|-u] [tool]\n' >&2
+        printf 'usage: install-tools.sh [--update|-u] [--force|-f] [tool]\n' >&2
         exit 1 ;;
       *)
         only_tool="$1"; shift ;;
@@ -357,17 +424,23 @@ main() {
     [[ -n "$only_tool" && "$tool" != "$only_tool" ]] && continue
 
     local version="${VERSIONS[$tool]-}"
+    local current=""
     if [[ -z "$version" ]]; then
       log "[skip] $tool (not in versions.toml)"
       continue
     fi
 
-    if [[ $update -eq 0 ]] && is_installed "$tool"; then
-      log "[skip] $tool (already installed; use --update to reinstall)"
+    current="$(installed_version "$tool" 2>/dev/null || true)"
+    if [[ $force -eq 0 && "$current" == "$version" ]]; then
+      log "[skip] $tool $version (already installed)"
       continue
     fi
 
-    log "[install] $tool $version"
+    if [[ -n "$current" ]]; then
+      log "[install] $tool $version (installed: $current)"
+    else
+      log "[install] $tool $version"
+    fi
     dispatch_install "$tool" "$version" "$arch"
   done
 
