@@ -7,10 +7,19 @@ case "$mode" in
   *) mode="$(basename "$0")" ;;
 esac
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+eza_bin=""
+
 if command -v eza >/dev/null 2>&1; then
+  eza_bin="$(command -v eza)"
+elif [[ -x "$script_dir/eza" ]]; then
+  eza_bin="$script_dir/eza"
+fi
+
+if [[ -n "$eza_bin" ]]; then
   case "$mode" in
-    ll|buoy-ll) exec eza -la --git --ignore-glob=".git" "$@" ;;
-    *) exec eza --tree --level=3 -la --git --ignore-glob=".git" "$@" ;;
+    ll|buoy-ll) exec "$eza_bin" -la --git --ignore-glob=".git" "$@" ;;
+    *) exec "$eza_bin" --tree --level=3 -la --git --ignore-glob=".git" "$@" ;;
   esac
 fi
 
