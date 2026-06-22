@@ -72,8 +72,8 @@ zstyle ':completion:*' use-cache on
 zstyle ':completion:*' cache-path ~/.zcompdump
 
 # Aliases
-alias ls="${NOMAD_BIN:-$HOME/.local/bin}/buoy-ls ls"
-alias ll="${NOMAD_BIN:-$HOME/.local/bin}/buoy-ls ll"
+alias ls="${NOMAD_BIN:-$HOME/.local/bin}/ezalias ls"
+alias ll="${NOMAD_BIN:-$HOME/.local/bin}/ezalias ll"
 alias sudo='sudo '
 
 alias vi='nvim'

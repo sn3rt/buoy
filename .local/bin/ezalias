@@ -18,7 +18,7 @@ fi
 
 if [[ -n "$eza_bin" ]]; then
   case "$mode" in
-    ll|buoy-ll) exec "$eza_bin" -la --git --ignore-glob=".git" "$@" ;;
+    ll) exec "$eza_bin" -la --git --ignore-glob=".git" "$@" ;;
     *) exec "$eza_bin" --tree --level=3 -la --git --ignore-glob=".git" "$@" ;;
   esac
 fi

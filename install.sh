@@ -64,7 +64,16 @@ link_item ".scripts" "$HOME/.scripts"
 
 # Local commands
 link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
-link_item ".local/bin/buoy-ls" "$HOME/.local/bin/buoy-ls"
+old_ls_link="$HOME/.local/bin/buoy-ls"
+old_ls_repo_link="$REPO_ROOT/.local/bin/buoy-ls"
+if [[ -L "$old_ls_link" ]]; then
+  old_ls_target="$(abspath "$old_ls_link")"
+  old_ls_repo_target="$(abspath "$old_ls_repo_link")"
+  if [[ "$old_ls_target" == "$old_ls_repo_target" || ! -e "$old_ls_link" ]]; then
+    rm "$old_ls_link"
+  fi
+fi
+link_item ".local/bin/ezalias" "$HOME/.local/bin/ezalias"
 link_item ".local/bin/gt" "$HOME/.local/bin/gt"
 link_item ".local/bin/wp" "$HOME/.local/bin/wp"
 legacy_cmd="$(printf 's%s' 'sht')"
@@ -80,7 +89,15 @@ fi
 link_item ".local/bin/nomad" "$HOME/.local/bin/nomad"
 
 # Terminal tool configs
-link_item ".config/buoy-theme" "$HOME/.config/buoy-theme"
+old_theme_link="$HOME/.config/buoy-theme"
+old_theme_repo_link="$REPO_ROOT/.config/buoy-theme"
+if [[ -L "$old_theme_link" ]]; then
+  old_theme_target="$(abspath "$old_theme_link")"
+  old_theme_repo_target="$(abspath "$old_theme_repo_link")"
+  if [[ "$old_theme_target" == "$old_theme_repo_target" || ! -e "$old_theme_link" ]]; then
+    rm "$old_theme_link"
+  fi
+fi
 link_item ".config/starship.toml" "$HOME/.config/starship.toml"
 link_item ".config/atuin" "$HOME/.config/atuin"
 link_item ".config/btop" "$HOME/.config/btop"
