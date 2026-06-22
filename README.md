@@ -2,9 +2,8 @@
 
 Terminal-focused dotfiles for multiple Linux machines.
 
-This repo intentionally stays portable. Desktop/session-specific config such as
-Hyprland, Quickshell, wallpaper selection, and live theme generation
-lives in the separate quay repo.
+This repo intentionally stays portable. Desktop/session-specific config lives
+outside this repo.
 
 ## Install
 
@@ -31,27 +30,6 @@ To check whether newer pinned tool versions are available:
 ./update-versions.sh --write  # update versions.toml without asking
 ./install-tools.sh --update
 ```
-
-## Shared team machines
-
-If multiple people share a single Ubuntu user account, each person should have their own
-Unix account so credentials and configs stay private. Run this once per person (requires
-sudo on the remote machine):
-
-```bash
-sudo ./setup-remote-user.sh <shared-user> <personal-user> [--ssh-key "pubkey"] [project-dir ...]
-```
-
-What it does:
-
-- creates the personal user account (if it doesn't exist)
-- adds them to the shared user's group so they can read the shared home
-- locks down the personal home dir (mode 700) so others cannot read it
-- optionally adds an SSH public key and sets up project dirs with group write access
-
-After that each person clones this repo into their own home and runs `./install.sh` +
-`./install-tools.sh` to get their own tools and configs, including their own Claude Code
-credentials.
 
 ## Temporary remote shell
 
@@ -94,16 +72,7 @@ $EDITOR ~/.config/secrets/.zshenv
 
 ## Theme colors
 
-Terminal and Neovim colors are read from `~/.config/buoy-theme/kitty.conf`,
-which is linked from `.config/buoy-theme/kitty.conf` in this repo.
-
-The quay repo owns the wallpaper palette generator. When you run its
-`theme-wallpaper` script, it updates the generated shared theme inside this
-`dots` checkout. Commit and push that generated file when you want new terminal
-and Neovim colors to follow `dots` to other machines.
-
-Machines that only install `dots` use the last committed shared theme. They do
-not need Hyprland, Quickshell, Pillow, or wallpaper tooling.
+Kitty colors are included with this repo.
 
 Neovim uses terminal palette slots instead of hardcoded hex colors, so live
 Kitty palette updates also affect Neovim. Running `:BuoyThemeReload` inside
