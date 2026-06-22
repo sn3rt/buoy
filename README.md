@@ -87,22 +87,13 @@ Use `gt -p "message"` to push after committing when the current branch already h
 
 Config lives in `~/.config/tmux/tmux.conf` and is also linked to `~/.tmux.conf` for compatibility.
 
-New terminals open as a normal shell. Use `tmx` when you want a tmux session:
+Use `tmx [path]` to create or attach a tmux session for a directory.
 
-- `tmx`: create/attach a session for the current directory
-- `tmx /path/to/project`: create/attach a session for that directory
-- Session names use the directory name plus a short path hash to avoid collisions
-- On remote hosts, start tmux there manually if you want sessions/popups
+Popups:
 
-- `Alt+p`: open Codex in a floating popup
-- In the popup: `Alt+c` hides the popup (Codex keeps running; press `Alt+p` again to reopen)
-- `Alt+b`: open Claude in a floating popup
-- In the popup: `Alt+c` hides the popup (Claude keeps running; press `Alt+b` again to reopen)
-- `Alt+e`: open Yazi in a floating popup
-- In the popup: `Alt+c` closes the popup; `q` closes Yazi and the popup
-- `Alt+f`: open a file fuzzy finder (fzf) in a popup; `Enter` opens the selection in `$EDITOR` in the original pane
+- `Alt+p`: Codex
+- `Alt+b`: Claude
+- `Alt+e`: Yazi
+- `Alt+f`: fzf file picker
 
-Codex/Claude popups are isolated per tmux session (so you can have multiple running at once across sessions). Yazi and fzf are short-lived popups.
-Yazi uses the same popup path locally and inside a `nomad` remote shell.
-
-These popups need the underlying tools installed on that machine (`codex`, `claude`, `yazi`, `fzf`; `fd` is optional for the file picker).
+`Alt+c` closes the active popup. Codex and Claude keep running in their isolated tmux popup sessions; Yazi and fzf are short-lived. The popup tools need to be installed on the machine where tmux is running.
