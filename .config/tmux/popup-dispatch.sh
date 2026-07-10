@@ -49,12 +49,12 @@ open_popup() {
   case "$kind" in
     codex)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$agent_conf" codex "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" codex)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" codex "$agent_conf" codex "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" "$target_client" codex)"
       open_tmux_command "Codex" "$cmd"
       ;;
     claude)
       local cmd
-      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$agent_conf" claude "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" claude)"
+      cmd="$(popup_command bash "$tmux_config_dir/popup-server.sh" claude "$agent_conf" claude "$outer_session_id" "$outer_session_name" "$outer_socket_path" "$session_path" "$target_client" claude)"
       open_tmux_command "Claude" "$cmd"
       ;;
     yazi)

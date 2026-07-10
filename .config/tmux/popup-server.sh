@@ -4,7 +4,7 @@ set -euo pipefail
 # Start (or attach to) a dedicated tmux server per *outer* tmux session.
 #
 # Usage:
-#   popup-server.sh <name> <conf> <session_name> <outer_session_id> <outer_session_name> <outer_socket_path> <cwd> <command...>
+#   popup-server.sh <name> <conf> <session_name> <outer_session_id> <outer_session_name> <outer_socket_path> <cwd> <outer_client_tty> <command...>
 #
 # We intentionally derive a unique suffix from the outer tmux session id,
 # captured by the outer tmux server before the popup shell starts.
@@ -16,7 +16,8 @@ outer_sid="${4:?missing outer session id}"
 outer_session_name="${5:-}"
 outer_socket_path="${6:-}"
 cwd="${7:-$PWD}"
-shift 7
+outer_client_tty="${8:-}"
+shift 8
 
 shell_quote() {
   printf '%q' "$1"
@@ -134,6 +135,11 @@ if [[ -n "$outer_socket_path" ]]; then
   env -u TMUX tmux -L "$socket_name" set-environment -g BUOY_OUTER_TMUX_SOCKET "$outer_socket_path" 2>/dev/null || true
 else
   env -u TMUX tmux -L "$socket_name" set-environment -gu BUOY_OUTER_TMUX_SOCKET 2>/dev/null || true
+fi
+if [[ -n "$outer_client_tty" ]]; then
+  env -u TMUX tmux -L "$socket_name" set-environment -g BUOY_OUTER_CLIENT_TTY "$outer_client_tty" 2>/dev/null || true
+else
+  env -u TMUX tmux -L "$socket_name" set-environment -gu BUOY_OUTER_CLIENT_TTY 2>/dev/null || true
 fi
 env -u TMUX tmux -L "$socket_name" set-environment -g BUOY_TMUX_CONFIG_DIR "$config_dir" 2>/dev/null || true
 env -u TMUX tmux -L "$socket_name" source-file "$conf" 2>/dev/null || true
