@@ -19,13 +19,21 @@ copy_to_outer_tmux() {
 copy_to_osc52() {
   local tty="${BUOY_OUTER_CLIENT_TTY-}"
   local encoded
+  local osc
 
   [[ -n "$tty" && -w "$tty" ]] || return 1
 
   encoded="$(base64 < "$tmp" | tr -d '\n')"
   [[ -n "$encoded" ]] || return 1
 
-  printf '\033]52;c;%s\a' "$encoded" > "$tty"
+  osc="$(printf '\033]52;c;%s\a' "$encoded")"
+
+  # Send both forms: plain OSC52 works for a direct terminal, while the
+  # tmux DCS wrapper lets OSC52 pass through when SSH runs inside local tmux.
+  {
+    printf '%s' "$osc"
+    printf '\033Ptmux;\033%s\033\\' "$osc"
+  } > "$tty"
 }
 
 copy_to_wayland() {
@@ -43,7 +51,7 @@ if [[ -n "${BUOY_OUTER_TMUX_SOCKET-}" ]] && command -v tmux >/dev/null 2>&1; the
   copy_to_outer_tmux || true
 fi
 
-if [[ -n "${SSH_CONNECTION-}${SSH_CLIENT-}" ]]; then
+if [[ -n "${BUOY_OUTER_CLIENT_TTY-}" ]]; then
   if copy_to_osc52; then
     exit 0
   fi

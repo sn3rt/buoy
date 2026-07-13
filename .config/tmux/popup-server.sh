@@ -145,7 +145,7 @@ env -u TMUX tmux -L "$socket_name" set-environment -g BUOY_TMUX_CONFIG_DIR "$con
 env -u TMUX tmux -L "$socket_name" source-file "$conf" 2>/dev/null || true
 
 if [[ $# -eq 0 ]]; then
-  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell"
+  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -e "BUOY_OUTER_CLIENT_TTY=$outer_client_tty"
 else
-  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -- "$@"
+  env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -A -s "$inner_session" -c "$cwd" -e "PATH=$login_path" -e "SHELL=$login_shell" -e "BUOY_OUTER_CLIENT_TTY=$outer_client_tty" -- "$@"
 fi
