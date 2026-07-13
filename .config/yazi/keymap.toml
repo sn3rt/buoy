@@ -1,0 +1,6 @@
+[mgr]
+
+prepend_keymap = [
+  { on = [ "s", "n" ], run = "sort natural --reverse=no --dir-first", desc = "Sort by name" },
+  { on = [ "s", "d" ], run = "sort mtime --reverse --dir-first", desc = "Sort by modified date" },
+]
