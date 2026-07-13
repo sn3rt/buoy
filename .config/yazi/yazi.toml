@@ -15,6 +15,9 @@ prepend_rules = [
 ]
 
 [mgr]
+sort_by = "mtime"
+sort_reverse = true
+sort_dir_first = true
 linemode = "btime_and_size"
 
 [plugin]
@@ -30,4 +33,3 @@ prepend_preloaders = [
   { url = "*.tif",  run = "magick" },
   { url = "*.tiff", run = "magick" }
 ]
-

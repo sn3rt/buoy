@@ -17,9 +17,14 @@ elif [[ -x "$script_dir/eza" ]]; then
 fi
 
 if [[ -n "$eza_bin" ]]; then
+  eza_args=()
+  if "$eza_bin" -v 2>/dev/null | grep -q '\[+git\]'; then
+    eza_args+=(--git)
+  fi
+
   case "$mode" in
-    ll) exec "$eza_bin" -la --git --ignore-glob=".git" "$@" ;;
-    *) exec "$eza_bin" --tree --level=3 -la --git --ignore-glob=".git" "$@" ;;
+    ll) exec "$eza_bin" -la "${eza_args[@]}" --ignore-glob=".git" "$@" ;;
+    *) exec "$eza_bin" --tree --level=3 -la "${eza_args[@]}" --ignore-glob=".git" "$@" ;;
   esac
 fi
 
