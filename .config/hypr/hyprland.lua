@@ -1,4 +1,4 @@
--- Native Hyprland Lua config. Keep hyprland.conf as the legacy rollback config.
+-- Native Hyprland Lua config.
 
 local home = os.getenv("HOME") or "."
 

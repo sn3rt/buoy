@@ -28,6 +28,9 @@ install software.
 Profile contents are defined in `profiles/terminal.links` and
 `profiles/desktop.links`.
 
+Before reinstalling, [ARCH-REINSTALL.md](ARCH-REINSTALL.md) lists the small set
+of identity and connection files worth copying.
+
 ## Tools
 
 Install the terminal tools pinned in `versions.toml`:
