@@ -91,13 +91,13 @@ Use `tmx [path]` to create or attach a tmux session for a directory.
 
 Pane/window keys:
 
-- `Alt+i/j/k/l`: focus pane up/left/down/right
-- `Alt+Shift+i/j/k/l`: swap pane up/left/down/right
+- `Alt+h/j/k/l`: focus pane left/down/up/right
+- `Alt+Shift+h/j/k/l`: swap pane left/down/up/right
 - `Alt+q`: split pane right; `Alt+Shift+q`: split pane down
 - `Alt+t`: toggle panes between side-by-side and stacked
 - `Alt+x`: close pane
 - `Alt+u/o`: previous/next tmux window
-- `Alt+Ctrl+j/l`: move pane to previous/next tmux window
+- `Alt+Ctrl+h/l`: move pane to previous/next tmux window
 
 Popups:
 
