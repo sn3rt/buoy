@@ -42,6 +42,7 @@ wait_for_monitors() {
   wait_for_monitors || printf 'hypr-startup: monitor readiness timed out, continuing\n'
   "$HOME/.local/bin/hypr-monitors-auto"
   "$HOME/.local/bin/theme-wallpaper"
+  "$HOME/.local/bin/restart-quickshell"
 
   : >"$STAMP"
   printf 'hypr-startup: completed\n'

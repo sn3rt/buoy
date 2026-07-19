@@ -18,7 +18,7 @@ timestamp() {
 }
 
 ensure_dirs() {
-  mkdir -p "$HOME/Pictures/screenshots" "$HOME/Pictures/snippets" "$HOME/Pictures/screenrecording"
+  mkdir -p "$HOME/pics/screenshots" "$HOME/pics/snippets" "$HOME/pics/screenrecording"
 }
 
 stop_recording_if_running() {
@@ -35,7 +35,7 @@ ensure_dirs
 case "${1-}" in
   screenshot-full)
     sleep 0.2
-    file="$HOME/Pictures/screenshots/screenshot-$(timestamp).png"
+    file="$HOME/pics/screenshots/screenshot-$(timestamp).png"
     grim - | tee "$file" | wl-copy
     notify "rgb(50fa7b)" "Screenshot saved"
     ;;
@@ -43,7 +43,7 @@ case "${1-}" in
     sleep 0.2
     notify "rgb(50fa7b)" "Select screenshot region"
     geom="$(slurp)"
-    file="$HOME/Pictures/snippets/snippet-$(timestamp).png"
+    file="$HOME/pics/snippets/snippet-$(timestamp).png"
     grim -g "$geom" - | tee "$file" | wl-copy
     notify "rgb(50fa7b)" "Snippet saved"
     ;;
@@ -52,7 +52,7 @@ case "${1-}" in
       exit 0
     fi
     sleep 0.2
-    file="$HOME/Pictures/screenrecording/recording-$(timestamp).mp4"
+    file="$HOME/pics/screenrecording/recording-$(timestamp).mp4"
     notify "rgb(50fa7b)" "Recording fullscreen"
     wf-recorder -f "$file"
     ;;
@@ -63,7 +63,7 @@ case "${1-}" in
     sleep 0.2
     notify "rgb(50fa7b)" "Select recording region"
     geom="$(slurp)"
-    file="$HOME/Pictures/screenrecording/recording-$(timestamp).mp4"
+    file="$HOME/pics/screenrecording/recording-$(timestamp).mp4"
     notify "rgb(50fa7b)" "Recording region"
     wf-recorder -g "$geom" -f "$file"
     ;;

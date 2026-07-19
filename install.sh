@@ -104,6 +104,16 @@ link_manifest() {
     exit 1
   fi
 
+  # Validate the complete manifest before changing anything in $HOME. This
+  # avoids leaving a partially linked profile when an entry is stale or mistyped.
+  while IFS= read -r item || [[ -n "$item" ]]; do
+    [[ -z "$item" || "$item" == \#* ]] && continue
+    if [[ ! -e "$REPO_ROOT/$item" ]]; then
+      printf 'Missing source: %s\n' "$REPO_ROOT/$item" >&2
+      exit 1
+    fi
+  done < "$manifest"
+
   while IFS= read -r item || [[ -n "$item" ]]; do
     [[ -z "$item" || "$item" == \#* ]] && continue
     link_item "$item" "$HOME/$item"
