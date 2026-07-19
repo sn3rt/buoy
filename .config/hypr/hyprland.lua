@@ -701,7 +701,10 @@ drawer_rule("dropdown-yazi", "yazi", 0.75, 0.65)
 drawer_rule("dropdown-launcher", "launcher", 0.4, 0.25)
 drawer_rule("dropdown-wifi", "wifi", 0.45, 0.45)
 
-local desktopYazi = "env YAZI_CONFIG_HOME=" .. home .. "/.config/yazi-desktop yazi"
+local desktopPath = home .. "/.local/bin:" .. (os.getenv("PATH") or "/usr/bin")
+local desktopYazi = "env PATH=" .. desktopPath
+    .. " YAZI_CONFIG_HOME=" .. home .. "/.config/yazi-desktop "
+    .. home .. "/.local/bin/yazi"
 hl.bind(mainMod .. " + E", toggle_drawer("yazi", "dropdown-yazi", desktopYazi))
 local toggleLauncher = toggle_drawer("launcher", "dropdown-launcher", "~/.local/bin/desktop-app-launcher")
 hl.bind(mainMod .. " + SPACE", toggleLauncher)

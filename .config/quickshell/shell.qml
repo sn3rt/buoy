@@ -17,6 +17,10 @@ ShellRoot {
         screen: mainScreen()
     }
 
+    NotificationPopup {
+        screen: mainScreen()
+    }
+
     Variants {
         model: Quickshell.screens
         WorkspaceBar {}

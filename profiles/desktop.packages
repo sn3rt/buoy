@@ -1,4 +1,5 @@
 # Terminal bootstrap dependencies
+7zip
 base-devel
 bzip2
 curl

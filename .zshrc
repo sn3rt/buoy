@@ -22,6 +22,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
 [[ -n "${NOMAD_BIN-}" ]] && export PATH="$NOMAD_BIN:$PATH"
 export EDITOR="nvim"
+export SUDO_EDITOR="$HOME/.local/bin/nvim"
 
 # Optional secrets (not tracked in dotfiles)
 [[ -f "$HOME/.config/secrets/.zshenv" ]] && source "$HOME/.config/secrets/.zshenv"
@@ -74,7 +75,6 @@ zstyle ':completion:*' cache-path ~/.zcompdump
 # Aliases
 alias ls="${NOMAD_BIN:-$HOME/.local/bin}/ezalias ls"
 alias ll="${NOMAD_BIN:-$HOME/.local/bin}/ezalias ll"
-alias sudo='sudo '
 
 alias vi='nvim'
 alias vim='nvim'

@@ -46,9 +46,6 @@ max_width = 1
 max_height = 1
 image_delay = 100
 
-[tasks]
-preload_workers = 0
-
 [opener]
 imv = [
   { run = "imv %s", orphan = true, desc = "Open in imv", for = "unix" }
