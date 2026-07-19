@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  printf 'usage: capture-action {screenshot-full|screenshot-area|record-full|record-area|record-stop}\n' >&2
+}
+
+notify() {
+  local color="$1"
+  local message="$2"
+  if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl notify 3 2500 "$color" "$message" >/dev/null 2>&1 || true
+  fi
+}
+
+timestamp() {
+  date +%Y-%m-%d_%H-%M-%S
+}
+
+ensure_dirs() {
+  mkdir -p "$HOME/Pictures/screenshots" "$HOME/Pictures/snippets" "$HOME/Pictures/screenrecording"
+}
+
+stop_recording_if_running() {
+  if pgrep -x wf-recorder >/dev/null 2>&1; then
+    pkill -INT wf-recorder
+    notify "rgb(ff5555)" "Recording stopped"
+    return 0
+  fi
+  return 1
+}
+
+ensure_dirs
+
+case "${1-}" in
+  screenshot-full)
+    sleep 0.2
+    file="$HOME/Pictures/screenshots/screenshot-$(timestamp).png"
+    grim - | tee "$file" | wl-copy
+    notify "rgb(50fa7b)" "Screenshot saved"
+    ;;
+  screenshot-area)
+    sleep 0.2
+    notify "rgb(50fa7b)" "Select screenshot region"
+    geom="$(slurp)"
+    file="$HOME/Pictures/snippets/snippet-$(timestamp).png"
+    grim -g "$geom" - | tee "$file" | wl-copy
+    notify "rgb(50fa7b)" "Snippet saved"
+    ;;
+  record-full)
+    if stop_recording_if_running; then
+      exit 0
+    fi
+    sleep 0.2
+    file="$HOME/Pictures/screenrecording/recording-$(timestamp).mp4"
+    notify "rgb(50fa7b)" "Recording fullscreen"
+    wf-recorder -f "$file"
+    ;;
+  record-area)
+    if stop_recording_if_running; then
+      exit 0
+    fi
+    sleep 0.2
+    notify "rgb(50fa7b)" "Select recording region"
+    geom="$(slurp)"
+    file="$HOME/Pictures/screenrecording/recording-$(timestamp).mp4"
+    notify "rgb(50fa7b)" "Recording region"
+    wf-recorder -g "$geom" -f "$file"
+    ;;
+  record-stop)
+    stop_recording_if_running || notify "rgb(ffb86c)" "No recording running"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

@@ -1,0 +1,42 @@
+[preview]
+max_width = 10000
+max_height = 10000
+image_quality = 60
+image_delay = 100
+
+[opener]
+imv = [
+  { run = "imv %s", orphan = true, desc = "Open in imv", for = "unix" }
+]
+normal = [
+  { run = "yazi-open-normal %s1", orphan = true, desc = "Open in normal workspace", for = "unix" }
+]
+
+[open]
+prepend_rules = [
+  { mime = "image/*", use = "imv" },
+  { mime = "text/*", use = "normal" },
+  { mime = "application/json", use = "normal" },
+  { mime = "application/xml", use = "normal" },
+  { mime = "application/x-shellscript", use = "normal" },
+  { mime = "inode/directory", use = "normal" }
+]
+
+[mgr]
+sort_by = "natural"
+sort_reverse = false
+sort_dir_first = true
+linemode = "btime_and_size"
+
+[plugin]
+prepend_previewers = [
+  { mime = "image/tiff", run = "magick" },
+  { url = "*.tif", run = "magick" },
+  { url = "*.tiff", run = "magick" }
+]
+
+prepend_preloaders = [
+  { mime = "image/tiff", run = "magick" },
+  { url = "*.tif", run = "magick" },
+  { url = "*.tiff", run = "magick" }
+]

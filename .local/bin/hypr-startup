@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+INSTANCE="${HYPRLAND_INSTANCE_SIGNATURE:-unknown}"
+STAMP="$RUNTIME_DIR/desktop-hypr-startup.$INSTANCE.done"
+LOCK="$STAMP.lock"
+LOG="$RUNTIME_DIR/desktop-hypr-startup.log"
+
+exec 9>"$LOCK"
+flock -n 9 || exit 0
+
+if [[ -e "$STAMP" ]]; then
+  exit 0
+fi
+
+run_once() {
+  local process="$1"
+  shift
+
+  if ! pgrep -x "$process" >/dev/null 2>&1; then
+    "$@" >/dev/null 2>&1 &
+  fi
+}
+
+wait_for_monitors() {
+  for _ in {1..50}; do
+    if hyprctl monitors | awk '$1 == "Monitor" { found = 1 } END { exit !found }'; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
+{
+  printf 'hypr-startup: starting for instance %s\n' "$INSTANCE"
+
+  run_once hypridle hypridle
+  run_once udiskie udiskie --no-tray
+
+  wait_for_monitors || printf 'hypr-startup: monitor readiness timed out, continuing\n'
+  "$HOME/.local/bin/hypr-monitors-auto"
+  "$HOME/.local/bin/theme-wallpaper"
+
+  : >"$STAMP"
+  printf 'hypr-startup: completed\n'
+} >>"$LOG" 2>&1

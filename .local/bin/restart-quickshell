@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+LOCK_FILE="$RUNTIME_DIR/quickshell-restart.lock"
+
+if ! command -v quickshell >/dev/null 2>&1; then
+  exit 0
+fi
+
+active_hyprland_signature() {
+  local lock pid signature mtime
+  local best_live_signature=""
+  local best_live_mtime=0
+  local best_any_signature=""
+  local best_any_mtime=0
+
+  while IFS= read -r -d '' lock; do
+    pid="$(sed -n '1p' "$lock" 2>/dev/null || true)"
+    signature="${lock%/hyprland.lock}"
+    signature="${signature##*/}"
+    mtime="$(stat -c %Y "$lock" 2>/dev/null || printf '0')"
+
+    if (( mtime >= best_any_mtime )); then
+      best_any_mtime="$mtime"
+      best_any_signature="$signature"
+    fi
+
+    if [[ -n "$pid" && -d "/proc/$pid" ]] && (( mtime >= best_live_mtime )); then
+      best_live_mtime="$mtime"
+      best_live_signature="$signature"
+    fi
+  done < <(find "$RUNTIME_DIR/hypr" -mindepth 2 -maxdepth 2 -name hyprland.lock -print0 2>/dev/null)
+
+  if [[ -n "$best_live_signature" ]]; then
+    printf '%s\n' "$best_live_signature"
+  elif [[ -n "$best_any_signature" ]]; then
+    printf '%s\n' "$best_any_signature"
+  fi
+}
+
+refresh_hyprland_env() {
+  local signature wayland
+
+  signature="$(active_hyprland_signature || true)"
+  if [[ -z "$signature" ]]; then
+    return 0
+  fi
+
+  export HYPRLAND_INSTANCE_SIGNATURE="$signature"
+  wayland="$(sed -n '2p' "$RUNTIME_DIR/hypr/$signature/hyprland.lock" 2>/dev/null || true)"
+  if [[ -n "$wayland" ]]; then
+    export WAYLAND_DISPLAY="$wayland"
+  fi
+}
+
+exec 9>"$LOCK_FILE"
+flock 9
+refresh_hyprland_env
+
+attempts=0
+while quickshell list 2>/dev/null | grep -q '^Instance '; do
+  quickshell kill >/dev/null 2>&1 || true
+  attempts=$((attempts + 1))
+  if [[ "$attempts" -ge 10 ]]; then
+    printf 'restart-quickshell: failed to stop existing quickshell instances.\n' >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+
+if quickshell --no-duplicate --daemonize 9>&- >/dev/null 2>&1; then
+  printf 'Quickshell: restarted\n'
+else
+  printf 'restart-quickshell: failed to start quickshell; run `quickshell` to inspect the error.\n' >&2
+  exit 1
+fi

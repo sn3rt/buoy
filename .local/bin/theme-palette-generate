@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:
+    print("theme-palette-generate: Python Pillow module is required", file=sys.stderr)
+    raise SystemExit(1)
+
+
+REQUIRED_COLOR_KEYS = [
+    "foreground",
+    "background",
+    "cursor",
+    "selection_foreground",
+    "selection_background",
+    "active_border_color",
+    "inactive_border_color",
+    "active_tab_foreground",
+    "active_tab_background",
+    "inactive_tab_foreground",
+    "inactive_tab_background",
+    *[f"color{i}" for i in range(16)],
+]
+
+HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+@dataclass(frozen=True)
+class Color:
+    r: int
+    g: int
+    b: int
+
+    @classmethod
+    def parse(cls, value: str) -> "Color":
+        if not HEX_COLOR_RE.fullmatch(value):
+            raise ValueError(f"invalid color value: {value!r}")
+        return cls(
+            int(value[1:3], 16),
+            int(value[3:5], 16),
+            int(value[5:7], 16),
+        )
+
+    @property
+    def hex(self) -> str:
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
+
+    @property
+    def rgb(self) -> tuple[int, int, int]:
+        return self.r, self.g, self.b
+
+    @property
+    def text_rgb(self) -> tuple[int, int, int]:
+        def linear(channel: int) -> float:
+            value = channel / 255
+            return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+        luminance = 0.2126 * linear(self.r) + 0.7152 * linear(self.g) + 0.0722 * linear(self.b)
+        white_contrast = 1.05 / (luminance + 0.05)
+        black_contrast = (luminance + 0.05) / 0.05
+        return (15, 15, 15) if black_contrast >= white_contrast else (245, 245, 245)
+
+    @property
+    def outline_rgb(self) -> tuple[int, int, int]:
+        return tuple(round(color * 0.78 + text * 0.22) for color, text in zip(self.rgb, self.text_rgb))
+
+
+def write_atomic(path: pathlib.Path, content: str) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def load_font(size: int, *, bold: bool = False):
+    names = ["DejaVuSans-Bold.ttf", "DejaVuSans.ttf"] if bold else ["DejaVuSans.ttf"]
+    for name in names:
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def render_palette_preview(
+    output_path: pathlib.Path,
+    image_path: pathlib.Path,
+    colors: dict[str, Color],
+) -> None:
+    width = 1200
+    height = 800
+    margin = 36
+    interface_keys = REQUIRED_COLOR_KEYS[:11]
+    terminal_keys = REQUIRED_COLOR_KEYS[11:]
+
+    preview = Image.new("RGB", (width, height), colors["background"].rgb)
+    draw = ImageDraw.Draw(preview)
+    title_font = load_font(28, bold=True)
+    source_font = load_font(15)
+    section_font = load_font(19, bold=True)
+    label_font = load_font(17)
+    value_font = load_font(25, bold=True)
+    terminal_label_font = load_font(15)
+    terminal_value_font = load_font(19, bold=True)
+    foreground = colors["foreground"].rgb
+    secondary = colors["inactive_tab_foreground"].rgb
+
+    draw.text((margin, 30), "Theme palette", fill=foreground, font=title_font)
+    draw.text(
+        (width - margin, 39),
+        image_path.name,
+        fill=secondary,
+        font=source_font,
+        anchor="ra",
+    )
+
+    draw.text((margin, 91), "Interface", fill=foreground, font=section_font)
+
+    interface_columns = 3
+    interface_gap = 12
+    interface_cell_width = (width - 2 * margin - interface_gap * (interface_columns - 1)) // interface_columns
+    interface_cell_height = 82
+    interface_top = 124
+
+    for index, key in enumerate(interface_keys):
+        row, column = divmod(index, interface_columns)
+        x = margin + column * (interface_cell_width + interface_gap)
+        y = interface_top + row * (interface_cell_height + interface_gap)
+        color = colors[key]
+        draw.rounded_rectangle(
+            (x, y, x + interface_cell_width, y + interface_cell_height),
+            radius=7,
+            fill=color.rgb,
+            outline=color.outline_rgb,
+            width=1,
+        )
+        draw.text((x + 16, y + 12), key, fill=color.text_rgb, font=label_font)
+        draw.text((x + 16, y + 39), color.hex, fill=color.text_rgb, font=value_font)
+
+    terminal_heading_y = 522
+    draw.text((margin, terminal_heading_y), "Terminal colors", fill=foreground, font=section_font)
+
+    terminal_columns = 8
+    terminal_gap = 10
+    terminal_cell_width = (width - 2 * margin - terminal_gap * (terminal_columns - 1)) // terminal_columns
+    terminal_cell_height = 92
+    terminal_top = terminal_heading_y + 34
+
+    for index, key in enumerate(terminal_keys):
+        row, column = divmod(index, terminal_columns)
+        x = margin + column * (terminal_cell_width + terminal_gap)
+        y = terminal_top + row * (terminal_cell_height + terminal_gap)
+        color = colors[key]
+        draw.rounded_rectangle(
+            (x, y, x + terminal_cell_width, y + terminal_cell_height),
+            radius=7,
+            fill=color.rgb,
+            outline=color.outline_rgb,
+            width=1,
+        )
+        draw.text((x + 12, y + 13), key, fill=color.text_rgb, font=terminal_label_font)
+        draw.text((x + 12, y + 42), color.hex, fill=color.text_rgb, font=terminal_value_font)
+
+    temporary_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    preview.save(temporary_path, format="PNG", optimize=True)
+    os.replace(temporary_path, output_path)
+
+
+def palette_extractor() -> str:
+    return os.environ.get("THEME_PALETTE_EXTRACTOR", str(pathlib.Path.home() / ".local/bin/theme-palette-extract"))
+
+
+def load_palette(image_path: pathlib.Path) -> dict[str, Color]:
+    extractor = palette_extractor()
+    try:
+        result = subprocess.run(
+            [extractor, str(image_path)],
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError:
+        print(f"theme-palette-generate: palette extractor not found: {extractor}", file=sys.stderr)
+        raise SystemExit(1)
+    except subprocess.CalledProcessError as error:
+        if error.stderr:
+            print(error.stderr, end="", file=sys.stderr)
+        print(f"theme-palette-generate: palette extractor failed: {extractor}", file=sys.stderr)
+        raise SystemExit(error.returncode)
+
+    try:
+        raw_palette = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        print(f"theme-palette-generate: palette extractor returned invalid JSON: {error}", file=sys.stderr)
+        raise SystemExit(1)
+
+    if not isinstance(raw_palette, dict):
+        print("theme-palette-generate: palette extractor JSON must be an object", file=sys.stderr)
+        raise SystemExit(1)
+
+    missing = [key for key in REQUIRED_COLOR_KEYS if key not in raw_palette]
+    if missing:
+        print(
+            "theme-palette-generate: palette extractor missing required keys: " + ", ".join(missing),
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    colors: dict[str, Color] = {}
+    for key in REQUIRED_COLOR_KEYS:
+        value = raw_palette[key]
+        if not isinstance(value, str):
+            print(f"theme-palette-generate: palette value for {key} must be a string", file=sys.stderr)
+            raise SystemExit(1)
+        try:
+            colors[key] = Color.parse(value)
+        except ValueError as error:
+            print(f"theme-palette-generate: {key}: {error}", file=sys.stderr)
+            raise SystemExit(1)
+
+    return colors
+
+
+def main() -> int:
+    if len(sys.argv) != 3:
+        print(
+            "usage: theme-palette-generate image state_dir",
+            file=sys.stderr,
+        )
+        return 2
+
+    image_path = pathlib.Path(sys.argv[1])
+    state_dir = pathlib.Path(sys.argv[2])
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    home = pathlib.Path.home()
+    try:
+        display_image_path = "~/" + str(image_path.relative_to(home))
+    except ValueError:
+        display_image_path = str(image_path)
+
+    colors = load_palette(image_path)
+    lines = [
+        "# Generated by desktop theme-wallpaper. Do not edit by hand.",
+        f"# Source image: {display_image_path}",
+        "",
+    ]
+    for key in REQUIRED_COLOR_KEYS:
+        lines.append(f"{key} {colors[key].hex}")
+    lines.append("")
+
+    write_atomic(state_dir / "palette", "\n".join(lines))
+    write_atomic(state_dir / "current-wallpaper", str(image_path) + "\n")
+    render_palette_preview(state_dir / "palette.png", image_path, colors)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

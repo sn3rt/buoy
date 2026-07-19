@@ -1,0 +1,398 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/Pictures/wallpapers}"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+STATE_DIR="${THEME_STATE_DIR:-$STATE_HOME/theme}"
+PALETTE="$STATE_DIR/palette"
+PALETTE_IMAGE="$STATE_DIR/palette.png"
+THEME_PALETTE_GENERATOR="${THEME_PALETTE_GENERATOR:-$HOME/.local/bin/theme-palette-generate}"
+HYPRPAPER_LOG="$STATE_DIR/hyprpaper.log"
+HYPRPAPER_CONFIG="$STATE_DIR/hyprpaper.conf"
+
+usage() {
+  printf 'usage: theme-wallpaper [--reapply] [image]\n' >&2
+}
+
+active_hyprland_signature() {
+  local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  local lock pid signature mtime
+  local best_live_signature=""
+  local best_live_mtime=0
+  local best_any_signature=""
+  local best_any_mtime=0
+
+  while IFS= read -r -d '' lock; do
+    pid="$(sed -n '1p' "$lock" 2>/dev/null || true)"
+    signature="${lock%/hyprland.lock}"
+    signature="${signature##*/}"
+    mtime="$(stat -c %Y "$lock" 2>/dev/null || printf '0')"
+
+    if (( mtime >= best_any_mtime )); then
+      best_any_mtime="$mtime"
+      best_any_signature="$signature"
+    fi
+
+    if [[ -n "$pid" && -d "/proc/$pid" ]] && (( mtime >= best_live_mtime )); then
+      best_live_mtime="$mtime"
+      best_live_signature="$signature"
+    fi
+  done < <(find "$runtime/hypr" -mindepth 2 -maxdepth 2 -name hyprland.lock -print0 2>/dev/null)
+
+  if [[ -n "$best_live_signature" ]]; then
+    printf '%s\n' "$best_live_signature"
+  elif [[ -n "$best_any_signature" ]]; then
+    printf '%s\n' "$best_any_signature"
+  fi
+}
+
+refresh_hyprland_env() {
+  local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+  local signature wayland
+
+  signature="$(active_hyprland_signature || true)"
+  if [[ -z "$signature" ]]; then
+    printf 'theme-wallpaper: no live Hyprland lock found, using existing HYPRLAND_INSTANCE_SIGNATURE=%s\n' "${HYPRLAND_INSTANCE_SIGNATURE:-unset}" >&2
+    return 0
+  fi
+
+  export HYPRLAND_INSTANCE_SIGNATURE="$signature"
+  wayland="$(sed -n '2p' "$runtime/hypr/$signature/hyprland.lock" 2>/dev/null || true)"
+  if [[ -n "$wayland" ]]; then
+    export WAYLAND_DISPLAY="$wayland"
+  fi
+
+  printf 'Hyprland instance: %s\n' "$HYPRLAND_INSTANCE_SIGNATURE"
+}
+
+set_wallpaper() {
+  local image="$1"
+
+  monitor_names() {
+    hyprctl monitors | awk '$1 == "Monitor" { print $2 }'
+  }
+
+  write_hyprpaper_config() {
+    {
+      printf 'ipc = true\n'
+      printf 'splash = true\n'
+      local monitor
+      while IFS= read -r monitor; do
+        printf '\n'
+        printf 'wallpaper {\n'
+        printf '    monitor = %s\n' "$monitor"
+        printf '    path = %s\n' "$image"
+        printf '    fit_mode = fill\n'
+        printf '}\n'
+      done < <(monitor_names)
+    } >"$HYPRPAPER_CONFIG"
+  }
+
+  set_hyprpaper_wallpapers() {
+    local monitor
+    local active
+    local found=0
+    local failed=0
+
+    while IFS= read -r monitor; do
+      found=1
+      if hyprctl hyprpaper wallpaper "$monitor, $image, fill" >/dev/null 2>&1; then
+        :
+      else
+        failed=1
+      fi
+    done < <(monitor_names)
+
+    active="$(hyprctl hyprpaper listactive 2>>"$HYPRPAPER_LOG")" || return 1
+    while IFS= read -r monitor; do
+      if ! grep -Fxq "$monitor: $image" <<<"$active"; then
+        failed=1
+      fi
+    done < <(monitor_names)
+
+    if [[ "$failed" -eq 0 ]]; then
+      {
+        printf 'theme-wallpaper: active wallpapers verified\n'
+        printf '%s\n' "$active"
+      } >>"$HYPRPAPER_LOG"
+    fi
+
+    [[ "$found" -eq 1 && "$failed" -eq 0 ]]
+  }
+
+  start_hyprpaper() {
+    local hyprpaper_bin
+
+    hyprpaper_bin="$(command -v hyprpaper || true)"
+    if [[ -z "$hyprpaper_bin" && -x /usr/bin/hyprpaper ]]; then
+      hyprpaper_bin="/usr/bin/hyprpaper"
+    fi
+
+    if [[ -z "$hyprpaper_bin" ]]; then
+      printf 'theme-wallpaper: hyprpaper command not found\n' >>"$HYPRPAPER_LOG"
+      return 1
+    fi
+
+    write_hyprpaper_config
+    : >"$HYPRPAPER_LOG"
+    {
+      printf 'theme-wallpaper: mode: %s\n' "$MODE"
+      printf 'theme-wallpaper: selected image: %s\n' "$image"
+      printf 'theme-wallpaper: config: %s\n' "$HYPRPAPER_CONFIG"
+      printf 'theme-wallpaper: launching hyprpaper directly: %s\n' "$hyprpaper_bin"
+    } >>"$HYPRPAPER_LOG"
+
+    if command -v setsid >/dev/null 2>&1; then
+      setsid -f "$hyprpaper_bin" --config "$HYPRPAPER_CONFIG" </dev/null >>"$HYPRPAPER_LOG" 2>&1
+      printf 'theme-wallpaper: hyprpaper launch method: setsid\n' >>"$HYPRPAPER_LOG"
+    else
+      nohup "$hyprpaper_bin" --config "$HYPRPAPER_CONFIG" </dev/null >>"$HYPRPAPER_LOG" 2>&1 &
+      printf 'theme-wallpaper: hyprpaper pid: %s\n' "$!" >>"$HYPRPAPER_LOG"
+      disown "$!" 2>/dev/null || true
+    fi
+    sleep 0.2
+  }
+
+  wait_for_hyprpaper() {
+    for _ in {1..60}; do
+      if set_hyprpaper_wallpapers; then
+        return 0
+      fi
+      sleep 0.1
+    done
+    return 1
+  }
+
+  write_hyprpaper_config
+  if set_hyprpaper_wallpapers; then
+    printf 'Wallpaper backend: hyprpaper\n'
+    return 0
+  fi
+
+  pkill -x hyprpaper >/dev/null 2>&1 || true
+  if start_hyprpaper && wait_for_hyprpaper; then
+    printf 'Wallpaper backend: hyprpaper\n'
+    return 0
+  fi
+
+  printf 'theme-wallpaper: Hyprpaper IPC failed after direct launch retry.\n' >&2
+
+  if command -v swww >/dev/null 2>&1; then
+    swww query >/dev/null 2>&1 || swww-daemon >/dev/null 2>&1 || true
+    if swww img "$image" --resize stretch >/dev/null 2>&1; then
+      printf 'Wallpaper backend: swww\n'
+      return 0
+    fi
+  fi
+
+  if command -v swaybg >/dev/null 2>&1; then
+    pkill -x swaybg >/dev/null 2>&1 || true
+    swaybg -i "$image" -m stretch >/dev/null 2>&1 &
+    printf 'Wallpaper backend: swaybg\n'
+    return 0
+  fi
+
+  printf 'theme-wallpaper: kitty colors updated, but no wallpaper backend is available.\n' >&2
+  printf 'theme-wallpaper: install/start swww, hyprpaper, or swaybg to set the Hyprland wallpaper.\n' >&2
+  return 1
+}
+
+apply_kitty_colors() {
+  local socket_error=0
+  local kitty_socket="unix:/tmp/dots-kitty-$(id -u).sock"
+
+  if ! command -v kitty >/dev/null 2>&1; then
+    printf 'theme-wallpaper: kitty command not found; colors written for future kitty sessions.\n' >&2
+    return 0
+  fi
+
+  if kitty @ --to "$kitty_socket" set-colors --all --configured "$PALETTE" >/dev/null 2>&1; then
+    printf 'Kitty colors: live update via shared socket\n'
+    return 0
+  fi
+
+  if [[ -n "${KITTY_LISTEN_ON-}" ]]; then
+    if kitty @ --to "$KITTY_LISTEN_ON" set-colors --all --configured "$PALETTE" >/dev/null 2>&1; then
+      printf 'Kitty colors: live update via socket\n'
+      return 0
+    fi
+    socket_error=1
+  fi
+
+  if [[ -n "${KITTY_WINDOW_ID-}" ]]; then
+    if kitty @ set-colors --all --configured "$PALETTE" >/dev/null 2>&1; then
+      printf 'Kitty colors: live update via controlling terminal\n'
+      return 0
+    fi
+  fi
+
+  if [[ -z "${KITTY_LISTEN_ON-}" ]]; then
+    printf 'theme-wallpaper: kitty colors written, but no live kitty socket is available.\n' >&2
+    printf 'theme-wallpaper: restart kitty once from Hyprland so it uses %s.\n' "$kitty_socket" >&2
+  elif [[ "$socket_error" -eq 1 ]]; then
+    printf 'theme-wallpaper: kitty colors written, but live socket update failed: %s\n' "$KITTY_LISTEN_ON" >&2
+  else
+    printf 'theme-wallpaper: kitty colors written; open a new kitty window to see them.\n' >&2
+  fi
+  return 0
+}
+
+apply_tmux_theme() {
+  local tmux_config="$CONFIG_HOME/tmux/tmux.conf"
+
+  if ! command -v tmux >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if tmux source-file "$tmux_config" >/dev/null 2>&1; then
+    printf 'Tmux: reloaded theme\n'
+  else
+    printf 'theme-wallpaper: tmux not reloaded; no reachable tmux server.\n' >&2
+  fi
+}
+
+apply_hyprland_theme() {
+  local active_color
+  local background_color
+  local inactive_color
+  local active_first
+  local active_second
+  local inactive
+  local lua
+
+  if ! command -v hyprctl >/dev/null 2>&1; then
+    return 0
+  fi
+
+  active_color="$(awk '$1 == "active_border_color" { print $2 }' "$PALETTE")"
+  background_color="$(awk '$1 == "background" { print $2 }' "$PALETTE")"
+  inactive_color="$(awk '$1 == "inactive_border_color" { print $2 }' "$PALETTE")"
+
+  if [[ -z "$active_color" || -z "$background_color" || -z "$inactive_color" ]]; then
+    printf 'theme-wallpaper: Hyprland colors missing from generated palette.\n' >&2
+    return 0
+  fi
+
+  if [[ ! "$active_color" =~ ^#[[:xdigit:]]{6}$ \
+    || ! "$background_color" =~ ^#[[:xdigit:]]{6}$ \
+    || ! "$inactive_color" =~ ^#[[:xdigit:]]{6}$ ]]; then
+    printf 'theme-wallpaper: Hyprland colors in palette are invalid.\n' >&2
+    return 0
+  fi
+
+  active_first="rgba(${active_color#"#"}d9)"
+  active_second="rgba(${background_color#"#"}d9)"
+  inactive="rgba(${inactive_color#"#"}aa)"
+
+  lua="hl.config({ general = { col = { active_border = { colors = { \"$active_first\", \"$active_second\" }, angle = 45 }, inactive_border = \"$inactive\" } } })"
+  if hyprctl eval "$lua" >/dev/null 2>&1; then
+    printf 'Hyprland: live border colors updated\n'
+    return 0
+  fi
+
+  if hyprctl keyword general:col.active_border "$active_first $active_second 45deg" >/dev/null 2>&1 \
+    && hyprctl keyword general:col.inactive_border "$inactive" >/dev/null 2>&1; then
+    printf 'Hyprland: live border colors updated\n'
+  else
+    printf 'theme-wallpaper: Hyprland border colors written, but live update failed.\n' >&2
+  fi
+}
+
+apply_quickshell_theme() {
+  printf 'Quickshell: live theme update via watched palette\n'
+}
+
+pick_wallpaper() {
+  local -a wallpapers=()
+  while IFS= read -r -d '' file; do
+    wallpapers+=("$file")
+  done < <(
+    find "$WALLPAPER_DIR" -maxdepth 1 -type f \
+      \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+      -print0 2>/dev/null
+  )
+
+  if [[ ${#wallpapers[@]} -eq 0 ]]; then
+    printf 'theme-wallpaper: no wallpapers found in %s\n' "$WALLPAPER_DIR" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${wallpapers[RANDOM % ${#wallpapers[@]}]}"
+}
+
+MODE="full"
+IMAGE=""
+
+case $# in
+  0)
+    ;;
+  1)
+    if [[ "$1" == "--reapply" ]]; then
+      MODE="reapply"
+    else
+      IMAGE="$1"
+    fi
+    ;;
+  2)
+    if [[ "$1" != "--reapply" ]]; then
+      usage
+      exit 2
+    fi
+    MODE="reapply"
+    IMAGE="$2"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+
+if ! command -v hyprctl >/dev/null 2>&1; then
+  printf 'theme-wallpaper: hyprctl is required\n' >&2
+  exit 1
+fi
+
+mkdir -p "$STATE_DIR"
+refresh_hyprland_env
+
+if [[ "$MODE" == "reapply" && -z "$IMAGE" ]]; then
+  if [[ ! -f "$STATE_DIR/current-wallpaper" ]]; then
+    printf 'theme-wallpaper: no current wallpaper saved for --reapply: %s\n' "$STATE_DIR/current-wallpaper" >&2
+    exit 1
+  fi
+  IMAGE="$(sed -n '1p' "$STATE_DIR/current-wallpaper")"
+fi
+
+if [[ -z "$IMAGE" ]]; then
+  IMAGE="$(pick_wallpaper)"
+fi
+
+if [[ ! -f "$IMAGE" ]]; then
+  printf 'theme-wallpaper: image not found: %s\n' "$IMAGE" >&2
+  exit 1
+fi
+
+IMAGE="$(readlink -f "$IMAGE")"
+
+if [[ "$MODE" == "reapply" ]]; then
+  mkdir -p "$STATE_DIR"
+  set_wallpaper "$IMAGE"
+  printf 'Wallpaper reapplied: %s\n' "$IMAGE"
+  exit 0
+fi
+
+mkdir -p "$STATE_DIR"
+
+"$THEME_PALETTE_GENERATOR" "$IMAGE" "$STATE_DIR"
+
+set_wallpaper "$IMAGE" || true
+
+apply_kitty_colors
+apply_hyprland_theme
+apply_tmux_theme
+apply_quickshell_theme
+
+printf 'Wallpaper: %s\n' "$IMAGE"
+printf 'Palette: %s\n' "$PALETTE"
+printf 'Palette preview: %s\n' "$PALETTE_IMAGE"

@@ -5,11 +5,11 @@ set -euo pipefail
 # Versions are defined in versions.toml in the same directory.
 #
 # Usage:
-#   ./install-tools.sh              # install all missing tools
-#   ./install-tools.sh --update     # install missing/outdated tools
-#   ./install-tools.sh --force      # re-download all tools
-#   ./install-tools.sh nvim         # install one tool
-#   ./install-tools.sh --force fzf  # re-download one tool
+#   ./install-tools.sh              # install pinned terminal tools
+#   ./install-tools.sh --terminal   # install pinned terminal tools
+#   ./install-tools.sh --desktop    # install Arch desktop packages and terminal tools
+#   ./install-tools.sh --force      # re-download all terminal tools
+#   ./install-tools.sh nvim         # install one terminal tool
 #
 # Requires: curl, tar, awk, gzip, bzip2, unzip (unzip only needed for yazi)
 # Installs to: ${XDG_BIN_HOME:-~/.local/bin}/
@@ -22,6 +22,12 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 log() {
   printf '%s\n' "$*"
+}
+
+usage() {
+  printf '%s\n' \
+    'usage: install-tools.sh [-t|--terminal|terminal] [--update|-u] [--force|-f] [tool]' \
+    '       install-tools.sh [-d|--desktop|desktop] [--update|-u] [--force|-f]' >&2
 }
 
 # ---------------------------------------------------------------------------
@@ -326,6 +332,48 @@ dispatch_install() {
 }
 
 # ---------------------------------------------------------------------------
+# Desktop packages
+
+check_desktop_host() {
+  if [[ ! -f /etc/arch-release ]] || ! command -v pacman >/dev/null 2>&1; then
+    printf 'install-tools: desktop mode requires Arch Linux with pacman\n' >&2
+    return 1
+  fi
+
+  if [[ $EUID -ne 0 ]] && ! command -v sudo >/dev/null 2>&1; then
+    printf 'install-tools: desktop mode requires sudo when not running as root\n' >&2
+    return 1
+  fi
+
+  if [[ ! -f "$REPO_ROOT/profiles/desktop.packages" ]]; then
+    printf 'install-tools: desktop package manifest not found: %s\n' \
+      "$REPO_ROOT/profiles/desktop.packages" >&2
+    return 1
+  fi
+}
+
+install_desktop_packages() {
+  local -a packages=()
+  local package
+
+  while IFS= read -r package; do
+    packages+=("$package")
+  done < <(awk 'NF && $1 !~ /^#/ { print $1 }' "$REPO_ROOT/profiles/desktop.packages")
+
+  if [[ ${#packages[@]} -eq 0 ]]; then
+    printf 'install-tools: desktop package manifest is empty\n' >&2
+    return 1
+  fi
+
+  log "[desktop] installing Arch packages"
+  if [[ $EUID -eq 0 ]]; then
+    pacman -S --needed "${packages[@]}"
+  else
+    sudo pacman -S --needed "${packages[@]}"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Version + skip logic
 
 tool_bin_name() {
@@ -391,18 +439,60 @@ installed_version() {
 main() {
   local force=0
   local only_tool=""
+  local profile="terminal"
+  local profile_set=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      -t|--terminal|terminal)
+        if [[ $profile_set -eq 1 && "$profile" != "terminal" ]]; then
+          usage
+          exit 2
+        fi
+        profile="terminal"
+        profile_set=1
+        shift
+        ;;
+      -d|--desktop|desktop)
+        if [[ $profile_set -eq 1 && "$profile" != "desktop" ]]; then
+          usage
+          exit 2
+        fi
+        profile="desktop"
+        profile_set=1
+        shift
+        ;;
       --update|-u) shift ;;
       --force|-f) force=1; shift ;;
+      --help|-h)
+        usage
+        exit 0
+        ;;
       -*)
-        printf 'usage: install-tools.sh [--update|-u] [--force|-f] [tool]\n' >&2
-        exit 1 ;;
+        usage
+        exit 2
+        ;;
       *)
-        only_tool="$1"; shift ;;
+        if [[ -n "$only_tool" ]]; then
+          usage
+          exit 2
+        fi
+        only_tool="$1"
+        shift
+        ;;
     esac
   done
+
+  if [[ "$profile" == "desktop" && -n "$only_tool" ]]; then
+    printf 'install-tools: a single tool cannot be selected in desktop mode\n' >&2
+    usage
+    exit 2
+  fi
+
+  if [[ "$profile" == "desktop" ]]; then
+    check_desktop_host
+    install_desktop_packages
+  fi
 
   local arch
   arch="$(detect_arch)"
@@ -444,7 +534,7 @@ main() {
     dispatch_install "$tool" "$version" "$arch"
   done
 
-  log "Done."
+  log "Done ($profile profile)."
 }
 
 main "$@"

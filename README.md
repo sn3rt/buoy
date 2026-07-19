@@ -1,27 +1,60 @@
 # buoy
 
-Terminal-focused dotfiles for multiple Linux machines.
+Dotfiles for portable terminal environments and an optional Arch/Hyprland desktop.
 
-This repo intentionally stays portable. Desktop/session-specific config lives
-outside this repo.
+The terminal profile is the portable base used locally and by Nomad. The desktop
+profile adds Hyprland, Quickshell, desktop helpers, and desktop-specific Yazi
+behavior on top of it.
 
 ## Install
 
-Run:
+Link the terminal profile (the default):
 
 ```bash
 ./install.sh
+./install.sh --terminal
 ```
 
-This script creates symlinks from this repo into `$HOME` and moves any existing conflicting files into `~/.buoy-backup/<timestamp>/`.
+Link the terminal and desktop profiles:
 
-It links config/scripts only. To install the tools themselves at the versions pinned in `versions.toml`, run:
+```bash
+./install.sh --desktop
+```
+
+The installer creates symlinks from this repo into `$HOME` and moves conflicting
+files into `~/.buoy-backup/<timestamp>/`. It only links configuration; it does not
+install software.
+
+Profile contents are defined in `profiles/terminal.links` and
+`profiles/desktop.links`.
+
+## Tools
+
+Install the terminal tools pinned in `versions.toml`:
 
 ```bash
 ./install-tools.sh
+./install-tools.sh --terminal
 ```
 
-This downloads pinned tools from GitHub releases into `~/.local/bin/`, including `eza` for the `ls` wrapper. Most tools use prebuilt binaries; tmux is built from source. Skips tools already installed at the pinned version; use `--force` to re-download. Requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev`. Neovim Treesitter parser builds also require a C compiler.
+On Arch, install the desktop package set plus the pinned terminal tools:
+
+```bash
+./install-tools.sh --desktop
+```
+
+Desktop packages are read from `profiles/desktop.packages` and installed with
+`pacman -S --needed`. Pacman owns and updates those packages. The script does not
+enable services, install hardware drivers, or install the configured Zen Browser
+Flatpak.
+
+Pinned terminal tools are installed into `~/.local/bin/` so local machines and
+Nomad use the same versions. Most use release binaries; tmux is built from source.
+Exact installed versions are skipped, while `--force` downloads them again.
+
+Terminal mode requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux
+on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and
+`libncurses-dev`. Neovim Treesitter parser builds require a C compiler.
 
 To check whether newer pinned tool versions are available:
 
@@ -30,6 +63,9 @@ To check whether newer pinned tool versions are available:
 ./update-versions.sh --write  # update versions.toml without asking
 ./install-tools.sh --update
 ```
+
+`update-versions.sh` is the controlled update path for terminal pins. Normal
+`pacman -Syu` updates the desktop package set.
 
 ## Temporary remote shell
 
@@ -43,14 +79,14 @@ nomad -wp user@host
 
 What it does:
 
-- packs this repo locally and streams it to the remote host
+- builds a payload from the tracked terminal profile and streams it to the remote host
 - unpacks into a temporary directory on the remote host
 - starts `zsh` with `ZDOTDIR` and the XDG paths pointed at that temporary copy
 - reuses that temporary directory on later `nomad` connections to the same host
 
 Notes:
 
-- the remote host needs `zsh`, `tar`, and `mktemp`
+- the local host needs `git`; the remote host needs `zsh`, `tar`, and `mktemp`
 - `nomad` is for an interactive shell only; it does not support passing a remote command
 - `nomad` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
 - `nomad --waypipe` / `nomad -wp` starts the final shell through Waypipe so Wayland GUI apps launched remotely can open locally
@@ -58,7 +94,8 @@ Notes:
 - Waypipe mode requires `waypipe` on both the local and remote machine
 - normal `exit` keeps the temporary directory alive so another terminal can reconnect to it
 - run `damon` inside the `nomad` shell to remove the temporary dotfiles and leave the SSH session
-- config, cache, logs, and tools installed with `./install-tools.sh` stay in that temporary directory until `damon`, reboot, or remote `/tmp` cleanup removes it
+- desktop configuration is never included in the Nomad payload
+- config, cache, logs, and tools installed with `./install-tools.sh --terminal` stay in that temporary directory until `damon`, reboot, or remote `/tmp` cleanup removes it
 - set `DOTFILES_DIR` if you want `nomad` to use a repo path other than the one inferred from the script location
 
 ## Secrets
@@ -77,6 +114,9 @@ Kitty colors are included with this repo.
 Neovim uses terminal palette slots instead of hardcoded hex colors, so live
 Kitty palette updates also affect Neovim. Running `:BuoyThemeReload` inside
 Neovim reapplies the highlight mappings if another colorscheme overwrites them.
+
+On the desktop, `theme-wallpaper` updates the wallpaper and live Kitty, tmux,
+Hyprland, and Quickshell colors from the generated palette.
 
 ## Git helper
 

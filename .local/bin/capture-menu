@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if pgrep -x wf-recorder >/dev/null 2>&1; then
+  "$HOME/.local/bin/capture-action" record-stop
+  exit 0
+fi
+
+if quickshell ipc --any-display call capture open >/dev/null 2>&1; then
+  exit 0
+fi
+
+if quickshell ipc call capture open >/dev/null 2>&1; then
+  exit 0
+fi
+
+if command -v hyprctl >/dev/null 2>&1; then
+  hyprctl notify 3 3000 "rgb(ff5555)" "Capture menu is not available" >/dev/null 2>&1 || true
+fi
+
+exit 1

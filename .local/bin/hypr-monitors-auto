@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STEP="0.25"
+GAP=0
+MAX_SCALE="2.5"
+
+# Helper: round to STEP and clamp
+round_step_clamp() {
+  local x="$1" min="$2" max="$3"
+  awk -v x="$x" -v step="$STEP" -v min="$min" -v max="$max" '
+    function round(v) { return int(v+0.5) }
+    BEGIN {
+      if (x < min) x = min
+      if (x > max) x = max
+      x = round(x/step)*step
+      if (x < min) x = min
+      if (x > max) x = max
+      printf "%.2f\n", x
+    }'
+}
+
+# Read fresh monitors json each time we need it (safe)
+mons_json() { hyprctl monitors -j; }
+
+LAPTOP="eDP-1"
+
+# Apply monitor layout through the native Lua config manager.
+apply_monitor() {
+  local name="$1" position="$2" scale="$3"
+  hyprctl eval "hl.monitor({ output = \"$name\", mode = \"preferred\", position = \"$position\", scale = $scale })"
+}
+
+# Field getter
+mfield() {
+  local name="$1" jqexpr="$2"
+  mons_json | jq -r ".[] | select(.name==\"$name\") | $jqexpr"
+}
+
+# DPI using keys that YOU have: physicalWidth / physicalHeight
+dpi_of() {
+  local name="$1"
+  local w_px w_mm
+  w_px="$(mfield "$name" '.width')"
+  w_mm="$(mfield "$name" '.physicalWidth // empty')"
+
+  if [[ -z "${w_mm:-}" || "$w_mm" == "null" || "$w_mm" == "0" ]]; then
+    echo ""
+    return 0
+  fi
+
+  awk -v wpx="$w_px" -v wmm="$w_mm" 'BEGIN {
+    inch = wmm / 25.4;
+    if (inch <= 0) exit 1;
+    printf "%.2f\n", (wpx / inch);
+  }'
+}
+
+# Ensure laptop exists
+if ! mons_json | jq -e ".[] | select(.name==\"$LAPTOP\")" >/dev/null; then
+  exit 0
+fi
+
+# MAIN_SCALE: take current Hyprland scale for laptop (single source of truth)
+MAIN_SCALE="$(mfield "$LAPTOP" '.scale')"
+[[ -z "$MAIN_SCALE" || "$MAIN_SCALE" == "null" ]] && MAIN_SCALE="1.0"
+MIN_SCALE="$MAIN_SCALE"
+
+# Laptop DPI (fallback)
+LAPTOP_DPI="$(dpi_of "$LAPTOP")"
+[[ -z "${LAPTOP_DPI:-}" ]] && LAPTOP_DPI="110.00"
+
+# Collect external monitors (names)
+mapfile -t EXTERNALS < <(mons_json | jq -r ".[] | select(.name!=\"$LAPTOP\") | .name")
+
+# Always set laptop at (0,0)
+apply_monitor "$LAPTOP" "0x0" "$MAIN_SCALE"
+
+# No externals
+if [[ ${#EXTERNALS[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+# Stable ordering
+mapfile -t EXTERNALS_SORTED < <(
+  printf "%s\n" "${EXTERNALS[@]}" | awk '
+    /^DP-/   {print "1 " $0; next}
+    /^HDMI/  {print "2 " $0; next}
+             {print "9 " $0}
+  ' | sort -k1,1 -k2,2 | cut -d" " -f2-
+)
+
+# Place externals above laptop, left-to-right
+X=0
+for M in "${EXTERNALS_SORTED[@]}"; do
+  W_PX="$(mfield "$M" '.width')"
+  H_PX="$(mfield "$M" '.height')"
+
+  # DPI scaling relative to laptop
+  DPI="$(dpi_of "$M")"
+  if [[ -z "${DPI:-}" ]]; then
+    SCALE="$MAIN_SCALE"
+  else
+    RAW_SCALE="$(awk -v ms="$MAIN_SCALE" -v d="$DPI" -v ld="$LAPTOP_DPI" 'BEGIN { printf "%.4f\n", ms*(d/ld) }')"
+    SCALE="$(round_step_clamp "$RAW_SCALE" "$MIN_SCALE" "$MAX_SCALE")"
+  fi
+
+  # Compute logical sizes USING TARGET SCALE (important!)
+  W_LOG="$(awk -v w="$W_PX" -v s="$SCALE" 'BEGIN { if (s<=0) s=1; printf "%d\n", (w/s); }')"
+  H_LOG="$(awk -v h="$H_PX" -v s="$SCALE" 'BEGIN { if (s<=0) s=1; printf "%d\n", (h/s); }')"
+
+  Y=$(( -1 * H_LOG - GAP ))
+
+  apply_monitor "$M" "${X}x${Y}" "$SCALE"
+
+  X=$(( X + W_LOG + GAP ))
+done

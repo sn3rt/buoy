@@ -1,0 +1,67 @@
+# Terminal bootstrap dependencies
+base-devel
+bzip2
+curl
+git
+gzip
+libevent
+ncurses
+nodejs
+npm
+openssh
+pkgconf
+ripgrep
+sudo
+tar
+unzip
+waypipe
+zsh
+
+# Desktop session
+hyprland
+hypridle
+hyprlock
+hyprpaper
+kitty
+quickshell
+ttf-hack-nerd
+ttf-roboto
+xdg-desktop-portal-hyprland
+
+# Launching and desktop integration
+file
+flatpak
+gtk3
+imv
+iproute2
+libnotify
+procps-ng
+udiskie
+xdg-utils
+
+# Audio, media, and hardware controls
+brightnessctl
+mpc
+pipewire
+pipewire-alsa
+pipewire-pulse
+playerctl
+wireplumber
+
+# Capture and clipboard
+grim
+slurp
+wf-recorder
+wl-clipboard
+
+# Network helpers
+bluez
+bluez-utils
+iwd
+wireless_tools
+
+# Theme and monitor helpers
+imagemagick
+jq
+python-pillow
+socat

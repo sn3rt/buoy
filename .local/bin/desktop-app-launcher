@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+list_apps() {
+  local data_dirs="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+  local -a app_dirs=("${XDG_DATA_HOME:-$HOME/.local/share}/applications")
+  local dir
+
+  IFS=: read -r -a system_dirs <<< "$data_dirs"
+  for dir in "${system_dirs[@]}"; do
+    app_dirs+=("$dir/applications")
+  done
+
+  awk '
+    function flush() {
+      if (path == "") return
+      if (type == "Application" && terminal != "true" && hidden != "true" && nodisplay != "true" && name != "") {
+        print name "\t" id
+      }
+    }
+    FNR == 1 {
+      flush()
+      path = FILENAME
+      id = FILENAME
+      sub(/^.*\//, "", id)
+      sub(/\.desktop$/, "", id)
+      section = ""
+      type = ""
+      terminal = ""
+      hidden = ""
+      nodisplay = ""
+      name = ""
+    }
+    /^\[Desktop Entry\]$/ { section = "desktop"; next }
+    /^\[/ { section = "other"; next }
+    section == "desktop" && /^Type=/ { type = substr($0, 6); next }
+    section == "desktop" && /^Terminal=/ { terminal = tolower(substr($0, 10)); next }
+    section == "desktop" && /^Hidden=/ { hidden = tolower(substr($0, 8)); next }
+    section == "desktop" && /^NoDisplay=/ { nodisplay = tolower(substr($0, 11)); next }
+    section == "desktop" && /^Name=/ && name == "" { name = substr($0, 6); next }
+    END { flush() }
+  ' "$@" | awk -F '\t' '!seen[$2]++' | sort -f -t $'\t' -k1,1
+}
+
+collect_desktop_files() {
+  local data_dirs="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+  local -a app_dirs=("${XDG_DATA_HOME:-$HOME/.local/share}/applications")
+  local -a files=()
+  local dir
+
+  IFS=: read -r -a system_dirs <<< "$data_dirs"
+  for dir in "${system_dirs[@]}"; do
+    app_dirs+=("$dir/applications")
+  done
+
+  for dir in "${app_dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    while IFS= read -r -d '' file; do
+      files+=("$file")
+    done < <(find "$dir" -maxdepth 1 \( -type f -o -type l \) -name '*.desktop' -print0 | sort -z)
+  done
+
+  if [[ ${#files[@]} -gt 0 ]]; then
+    list_apps "${files[@]}"
+  fi
+}
+
+if [[ "${1-}" == "--list" ]]; then
+  collect_desktop_files
+  exit 0
+fi
+
+selection="$(collect_desktop_files | fzf --delimiter=$'\t' --with-nth=1 --prompt='Launch: ' --no-multi)" || exit 0
+app_id="${selection#*$'\t'}"
+[[ -n "$app_id" ]] || exit 0
+
+setsid -f gtk-launch "$app_id" >/dev/null 2>&1 </dev/null

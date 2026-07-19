@@ -1,5 +1,7 @@
 .config/secrets/.zshenv
 **/node_modules/
+**/__pycache__/
+*.pyc
 .dotfiles-backup/
 CLAUDE.md
 nvim.log

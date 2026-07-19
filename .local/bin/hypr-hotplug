@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+MODE="reapply"
+
+if [[ "${1-}" == "--layout-only" ]]; then
+  MODE="layout-only"
+elif [[ "${1-}" == "--reload" ]]; then
+  MODE="reload"
+elif [[ $# -gt 0 ]]; then
+  printf 'usage: hypr-hotplug [--layout-only|--reload]\n' >&2
+  exit 2
+fi
+
+LOCK="$RUNTIME_DIR/desktop-hypr-hotplug.lock"
+LOG="$RUNTIME_DIR/desktop-hypr-hotplug.log"
+
+exec 9>"$LOCK"
+flock 9
+
+log() {
+  printf '%s %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$*" >>"$LOG"
+}
+
+log "hotplug $MODE start"
+
+# Let Hyprland finish adding/removing outputs before applying our layout.
+sleep 2
+
+if "$HOME/.local/bin/hypr-monitors-auto" >>"$LOG" 2>&1; then
+  log "hotplug $MODE layout done"
+else
+  status=$?
+  log "hotplug $MODE layout failed status=$status"
+  exit "$status"
+fi
+
+if [[ "$MODE" != "layout-only" ]]; then
+  if "$HOME/.local/bin/theme-wallpaper" --reapply >>"$LOG" 2>&1; then
+    log "hotplug $MODE wallpaper reapplied"
+  else
+    status=$?
+    log "hotplug $MODE wallpaper failed status=$status"
+    exit "$status"
+  fi
+
+  if "$HOME/.local/bin/restart-quickshell" >>"$LOG" 2>&1; then
+    log "hotplug $MODE quickshell restarted"
+  else
+    status=$?
+    log "hotplug $MODE quickshell restart failed status=$status"
+    exit "$status"
+  fi
+fi
+
+log "hotplug $MODE done"

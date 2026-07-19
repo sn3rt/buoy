@@ -1,0 +1,16 @@
+.zshrc
+.scripts
+.local/bin/ezalias
+.local/bin/gt
+.local/bin/nomad
+.local/bin/tmx
+.local/bin/wp
+.config/atuin
+.config/btop
+.config/kitty
+.config/nvim
+.config/snert-logo
+.config/starship.toml
+.config/tmux
+.config/yazi
+.tmux.conf

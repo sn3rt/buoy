@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target="${1:-}"
+if [[ -z "$target" ]]; then
+  exit 0
+fi
+
+if [[ ! -e "$target" ]]; then
+  notify-send "Yazi" "Path does not exist: $target" >/dev/null 2>&1 || true
+  exit 1
+fi
+
+terminal_socket="unix:/tmp/dots-kitty-$(id -u).sock"
+runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+active_hyprland_signature() {
+  local lock pid signature mtime
+  local best_live_signature=""
+  local best_live_mtime=0
+  local best_any_signature=""
+  local best_any_mtime=0
+
+  while IFS= read -r -d '' lock; do
+    pid="$(sed -n '1p' "$lock" 2>/dev/null || true)"
+    signature="${lock%/hyprland.lock}"
+    signature="${signature##*/}"
+    mtime="$(stat -c %Y "$lock" 2>/dev/null || printf '0')"
+
+    if (( mtime >= best_any_mtime )); then
+      best_any_mtime="$mtime"
+      best_any_signature="$signature"
+    fi
+
+    if [[ -n "$pid" && -d "/proc/$pid" ]] && (( mtime >= best_live_mtime )); then
+      best_live_mtime="$mtime"
+      best_live_signature="$signature"
+    fi
+  done < <(find "$runtime_dir/hypr" -mindepth 2 -maxdepth 2 -name hyprland.lock -print0 2>/dev/null)
+
+  if [[ -n "$best_live_signature" ]]; then
+    printf "%s\n" "$best_live_signature"
+  elif [[ -n "$best_any_signature" ]]; then
+    printf "%s\n" "$best_any_signature"
+  fi
+}
+
+refresh_hyprland_env() {
+  local signature wayland
+
+  signature="$(active_hyprland_signature || true)"
+  if [[ -z "$signature" ]]; then
+    return 0
+  fi
+
+  export HYPRLAND_INSTANCE_SIGNATURE="$signature"
+  wayland="$(sed -n '2p' "$runtime_dir/hypr/$signature/hyprland.lock" 2>/dev/null || true)"
+  if [[ -n "$wayland" ]]; then
+    export WAYLAND_DISPLAY="$wayland"
+  fi
+}
+
+shell_quote_command() {
+  local quoted=""
+  local part
+
+  for part in "$@"; do
+    printf -v part "%q" "$part"
+    quoted+="$part "
+  done
+
+  printf "%s" "${quoted% }"
+}
+
+active_normal_workspace() {
+  local workspace
+
+  if command -v jq >/dev/null 2>&1; then
+    workspace="$(hyprctl -j monitors 2>/dev/null \
+      | jq -r 'map(select(.focused))[0].activeWorkspace.id // empty' 2>/dev/null || true)"
+    if [[ "$workspace" =~ ^[0-9]+$ ]] && (( workspace > 0 )); then
+      printf "%s\n" "$workspace"
+      return 0
+    fi
+
+    workspace="$(hyprctl -j activeworkspace 2>/dev/null \
+      | jq -r '.id // empty' 2>/dev/null || true)"
+    if [[ "$workspace" =~ ^[0-9]+$ ]] && (( workspace > 0 )); then
+      printf "%s\n" "$workspace"
+      return 0
+    fi
+  fi
+
+  printf "1\n"
+}
+
+mime_type() {
+  file -Lb --mime-type -- "$1" 2>/dev/null || printf "application/octet-stream"
+}
+
+launch_behind_dropdown() {
+  local workspace command
+  workspace="$(active_normal_workspace)"
+  command="$(shell_quote_command "$@")"
+
+  if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl dispatch exec "[workspace $workspace silent] $command" >/dev/null
+  else
+    nohup "$@" >/dev/null 2>&1 &
+  fi
+}
+
+refresh_hyprland_env
+
+if [[ -d "$target" ]]; then
+  launch_behind_dropdown kitty --single-instance --listen-on "$terminal_socket" --directory "$target"
+  exit 0
+fi
+
+case "$(mime_type "$target")" in
+  text/*|application/json|application/xml|application/x-shellscript)
+    launch_behind_dropdown kitty --single-instance --listen-on "$terminal_socket" --directory "$(dirname -- "$target")" -e nvim "$target"
+    ;;
+  *)
+    launch_behind_dropdown xdg-open "$target"
+    ;;
+esac

@@ -4,6 +4,43 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_ROOT="$HOME/.buoy-backup/$(date +%Y%m%d-%H%M%S)"
 
+usage() {
+  printf 'usage: install.sh [-t|--terminal|terminal] [-d|--desktop|desktop]\n' >&2
+}
+
+profile="terminal"
+profile_set=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -t|--terminal|terminal)
+      if [[ $profile_set -eq 1 && "$profile" != "terminal" ]]; then
+        usage
+        exit 2
+      fi
+      profile="terminal"
+      profile_set=1
+      ;;
+    -d|--desktop|desktop)
+      if [[ $profile_set -eq 1 && "$profile" != "desktop" ]]; then
+        usage
+        exit 2
+      fi
+      profile="desktop"
+      profile_set=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+  shift
+done
+
 check_for_updates() {
   command -v git >/dev/null 2>&1 || return 0
   git -C "$REPO_ROOT" fetch --quiet 2>/dev/null || return 0
@@ -58,12 +95,22 @@ link_item() {
   ln -s "$src" "$target"
 }
 
-# Shell + scripts
-link_item ".zshrc" "$HOME/.zshrc"
-link_item ".scripts" "$HOME/.scripts"
+link_manifest() {
+  local manifest="$1"
+  local item
 
-# Local commands
-link_item ".local/bin/tmx" "$HOME/.local/bin/tmx"
+  if [[ ! -f "$manifest" ]]; then
+    printf 'Missing profile manifest: %s\n' "$manifest" >&2
+    exit 1
+  fi
+
+  while IFS= read -r item || [[ -n "$item" ]]; do
+    [[ -z "$item" || "$item" == \#* ]] && continue
+    link_item "$item" "$HOME/$item"
+  done < "$manifest"
+}
+
+# Remove links created by older versions of the repository.
 old_ls_link="$HOME/.local/bin/buoy-ls"
 old_ls_repo_link="$REPO_ROOT/.local/bin/buoy-ls"
 if [[ -L "$old_ls_link" ]]; then
@@ -73,9 +120,6 @@ if [[ -L "$old_ls_link" ]]; then
     rm "$old_ls_link"
   fi
 fi
-link_item ".local/bin/ezalias" "$HOME/.local/bin/ezalias"
-link_item ".local/bin/gt" "$HOME/.local/bin/gt"
-link_item ".local/bin/wp" "$HOME/.local/bin/wp"
 legacy_cmd="$(printf 's%s' 'sht')"
 legacy_link="$HOME/.local/bin/$legacy_cmd"
 legacy_repo_link="$REPO_ROOT/.local/bin/$legacy_cmd"
@@ -86,9 +130,6 @@ if [[ -L "$legacy_link" ]]; then
     rm "$legacy_link"
   fi
 fi
-link_item ".local/bin/nomad" "$HOME/.local/bin/nomad"
-
-# Terminal tool configs
 old_theme_link="$HOME/.config/buoy-theme"
 old_theme_repo_link="$REPO_ROOT/.config/buoy-theme"
 if [[ -L "$old_theme_link" ]]; then
@@ -98,17 +139,11 @@ if [[ -L "$old_theme_link" ]]; then
     rm "$old_theme_link"
   fi
 fi
-link_item ".config/starship.toml" "$HOME/.config/starship.toml"
-link_item ".config/atuin" "$HOME/.config/atuin"
-link_item ".config/btop" "$HOME/.config/btop"
-link_item ".config/kitty" "$HOME/.config/kitty"
-link_item ".config/nvim" "$HOME/.config/nvim"
-link_item ".config/tmux" "$HOME/.config/tmux"
-link_item ".config/yazi" "$HOME/.config/yazi"
-link_item ".config/snert-logo" "$HOME/.config/snert-logo"
 
-# tmux reads ~/.tmux.conf on older versions
-link_item ".tmux.conf" "$HOME/.tmux.conf"
+link_manifest "$REPO_ROOT/profiles/terminal.links"
+if [[ "$profile" == "desktop" ]]; then
+  link_manifest "$REPO_ROOT/profiles/desktop.links"
+fi
 
 # Secrets live outside git
 mkdir -p "$HOME/.config/secrets"
@@ -118,4 +153,4 @@ if [[ ! -f "$HOME/.config/secrets/.zshenv" ]]; then
     "$REPO_ROOT/.config/secrets/.zshenv.example" >&2
 fi
 
-printf 'Done. Backups (if any): %s\n' "$BACKUP_ROOT"
+printf 'Done (%s profile). Backups (if any): %s\n' "$profile" "$BACKUP_ROOT"

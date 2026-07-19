@@ -1,0 +1,16 @@
+.config/hypr
+.config/quickshell
+.config/yazi-desktop
+.local/bin/capture-action
+.local/bin/capture-menu
+.local/bin/desktop-app-launcher
+.local/bin/hypr-hotplug
+.local/bin/hypr-monitors-auto
+.local/bin/hypr-reload-theme
+.local/bin/hypr-startup
+.local/bin/restart-quickshell
+.local/bin/theme-palette-extract
+.local/bin/theme-palette-generate
+.local/bin/theme-wallpaper
+.local/bin/wifi-iwctl-launcher
+.local/bin/yazi-open-normal

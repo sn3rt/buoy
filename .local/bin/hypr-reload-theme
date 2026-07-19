@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+THEME_WALLPAPER="${THEME_WALLPAPER:-$HOME/.local/bin/theme-wallpaper}"
+
+if [[ ! -x "$THEME_WALLPAPER" ]]; then
+  printf 'hypr-reload-theme: theme-wallpaper helper not found: %s\n' "$THEME_WALLPAPER" >&2
+  exit 1
+fi
+
+"$THEME_WALLPAPER" "$@"

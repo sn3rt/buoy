@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import colorsys
+import json
+import pathlib
+import sys
+from dataclasses import dataclass
+
+try:
+    from PIL import Image
+except ImportError:
+    print("theme-palette-extract: Python Pillow module is required", file=sys.stderr)
+    sys.exit(1)
+
+
+@dataclass(frozen=True)
+class Color:
+    r: int
+    g: int
+    b: int
+
+    @property
+    def hex(self) -> str:
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
+
+    def hls(self) -> tuple[float, float, float]:
+        return colorsys.rgb_to_hls(self.r / 255, self.g / 255, self.b / 255)
+
+    def luminance(self) -> float:
+        def channel(value: int) -> float:
+            value = value / 255
+            return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+
+        return 0.2126 * channel(self.r) + 0.7152 * channel(self.g) + 0.0722 * channel(self.b)
+
+    def contrast(self, other: "Color") -> float:
+        lighter = max(self.luminance(), other.luminance())
+        darker = min(self.luminance(), other.luminance())
+        return (lighter + 0.05) / (darker + 0.05)
+
+    def with_lightness(self, lightness: float) -> "Color":
+        h, _l, s = self.hls()
+        r, g, b = colorsys.hls_to_rgb(h, clamp(lightness), s)
+        return Color(round(r * 255), round(g * 255), round(b * 255))
+
+    def with_saturation(self, saturation: float) -> "Color":
+        h, l, _s = self.hls()
+        r, g, b = colorsys.hls_to_rgb(h, l, clamp(saturation))
+        return Color(round(r * 255), round(g * 255), round(b * 255))
+
+    def mix(self, other: "Color", amount: float) -> "Color":
+        amount = clamp(amount)
+        return Color(
+            round(self.r * (1 - amount) + other.r * amount),
+            round(self.g * (1 - amount) + other.g * amount),
+            round(self.b * (1 - amount) + other.b * amount),
+        )
+
+
+def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+    return min(high, max(low, value))
+
+
+def useful_accent(color: Color) -> bool:
+    _h, lightness, saturation = color.hls()
+    return saturation >= 0.18 and 0.18 <= lightness <= 0.82
+
+
+def brighten(color: Color) -> Color:
+    h, lightness, saturation = color.hls()
+    r, g, b = colorsys.hls_to_rgb(
+        h,
+        clamp(max(lightness + 0.18, 0.62)),
+        clamp(max(saturation, 0.35)),
+    )
+    return Color(round(r * 255), round(g * 255), round(b * 255))
+
+
+def extract_colors(image_path: pathlib.Path) -> list[Color]:
+    with Image.open(image_path) as image:
+        image = image.convert("RGB")
+        image.thumbnail((260, 260))
+        quantized = image.quantize(colors=18, method=Image.Quantize.MEDIANCUT)
+        palette = quantized.getpalette() or []
+        counts = quantized.getcolors() or []
+
+    weighted: list[tuple[int, Color]] = []
+    for count, index in counts:
+        offset = index * 3
+        if offset + 2 < len(palette):
+            weighted.append((count, Color(palette[offset], palette[offset + 1], palette[offset + 2])))
+
+    weighted.sort(key=lambda item: item[0], reverse=True)
+    return [color for _count, color in weighted]
+
+
+def palette_from(colors: list[Color]) -> dict[str, Color]:
+    if not colors:
+        raise ValueError("no colors could be extracted from image")
+
+    darkest = min(colors, key=lambda c: c.luminance())
+    lightest = max(colors, key=lambda c: c.luminance())
+    accents = [color for color in colors if useful_accent(color)] or colors
+    accents = sorted(accents, key=lambda c: c.hls()[2], reverse=True)
+
+    background = darkest.with_lightness(0.07).with_saturation(max(darkest.hls()[2], 0.22))
+    foreground = lightest.with_lightness(0.91).with_saturation(min(lightest.hls()[2], 0.28))
+    if background.contrast(foreground) < 7:
+        foreground = Color(238, 242, 245)
+
+    primary = accents[0].with_lightness(0.50).with_saturation(max(accents[0].hls()[2], 0.35))
+    secondary = accents[min(1, len(accents) - 1)].with_lightness(0.46).with_saturation(0.38)
+    accent = accents[min(2, len(accents) - 1)].with_lightness(0.58).with_saturation(0.48)
+    muted = foreground.mix(background, 0.48)
+    bg_alt = background.mix(primary, 0.18)
+
+    return {
+        "foreground": foreground,
+        "background": background,
+        "cursor": accent,
+        "selection_foreground": background,
+        "selection_background": accent,
+        "active_border_color": primary,
+        "inactive_border_color": bg_alt,
+        "active_tab_foreground": background,
+        "active_tab_background": primary,
+        "inactive_tab_foreground": muted,
+        "inactive_tab_background": bg_alt,
+        "color0": background,
+        "color1": Color(229, 87, 93),
+        "color2": Color(85, 195, 112),
+        "color3": Color(226, 178, 78),
+        "color4": secondary,
+        "color5": primary,
+        "color6": accent,
+        "color7": foreground,
+        "color8": muted,
+        "color9": brighten(Color(229, 87, 93)),
+        "color10": brighten(Color(85, 195, 112)),
+        "color11": brighten(Color(226, 178, 78)),
+        "color12": brighten(secondary),
+        "color13": brighten(primary),
+        "color14": brighten(accent),
+        "color15": Color(248, 250, 252),
+    }
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print("usage: theme-palette-extract image", file=sys.stderr)
+        return 2
+
+    image_path = pathlib.Path(sys.argv[1])
+    palette = palette_from(extract_colors(image_path))
+    print(json.dumps({key: color.hex for key, color in palette.items()}, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

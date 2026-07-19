@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IWCTL_TIMEOUT="${IWCTL_TIMEOUT:-8s}"
+IWCTL_REFRESH_TIMEOUT="${IWCTL_REFRESH_TIMEOUT:-2s}"
+
+strip_ansi() {
+  sed -E 's/\x1B\[[0-9;?]*[ -/]*[@-~]//g' | sed '/^Terminate$/d'
+}
+
+pause() {
+  printf '\nPress Enter to continue...' >&2
+  IFS= read -r _ || true
+}
+
+run_iwctl() {
+  timeout "$IWCTL_TIMEOUT" iwctl "$@" 2>&1 | strip_ansi
+}
+
+station_devices() {
+  { run_iwctl station list || true; } | awk '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    {
+      line = trim($0)
+    }
+    line == "" { next }
+    line ~ /^[-[:space:]]+$/ { next }
+    line == "Terminate" { next }
+    line ~ /^(Devices|Name[[:space:]]|Station|---)/ { next }
+    {
+      name = line
+      sub(/[[:space:]].*$/, "", name)
+      if (name != "" && name !~ /^(Name|State)$/) print name
+    }
+  '
+}
+
+choose_station() {
+  local devices device_count
+  devices="$(station_devices | awk '!seen[$0]++')"
+  device_count="$(printf '%s\n' "$devices" | sed '/^$/d' | wc -l)"
+
+  case "$device_count" in
+    0)
+      printf 'No iwd Wi-Fi station found.\n\n' >&2
+      printf 'Check that iwd is running and your Wi-Fi device is managed by iwd.\n' >&2
+      pause
+      exit 1
+      ;;
+    1)
+      printf '%s\n' "$devices"
+      ;;
+    *)
+      printf '%s\n' "$devices" | fzf --prompt='Wi-Fi device: ' --no-multi
+      ;;
+  esac
+}
+
+network_rows() {
+  local device="$1"
+  local current="${2-}"
+  local known="${3-}"
+
+  { run_iwctl station "$device" get-networks rssi-bars || true; } | awk '
+    BEGIN {
+      split(known_networks, known_items, "\034")
+      for (known_i in known_items) {
+        if (known_items[known_i] != "") known[known_items[known_i]] = 1
+      }
+    }
+    function trim(s) {
+      sub(/^[[:space:]>*]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    function join_fields(first, last,    out, i) {
+      out = ""
+      for (i = first; i <= last; i++) {
+        out = out (out == "" ? "" : " ") $i
+      }
+      return out
+    }
+    /^[[:space:]]*$/ { next }
+    /^[-[:space:]]+$/ { next }
+    /^Terminate$/ { next }
+    /^(Available|Network[[:space:]]|---)/ { next }
+    {
+      security_idx = 0
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^(open|psk|8021x|owe|sae)$/) {
+          security_idx = i
+          break
+        }
+      }
+      if (security_idx == 0) next
+
+      connected = $0 ~ /^[[:space:]]*>/
+      ssid = trim(join_fields(1, security_idx - 1))
+      security = $security_idx
+      signal = join_fields(security_idx + 1, NF)
+      marker = (connected || ssid == current) ? "*" : " "
+      known_marker = (ssid in known) ? "K" : " "
+      display = sprintf("%-2s %-2s %-32s %-8s %s", marker, known_marker, ssid, security, signal)
+      if (ssid != "") print ssid "\t" display
+    }
+  ' current="$current" known_networks="$known" | awk -F '\t' '!seen[$1]++'
+}
+
+known_networks() {
+  { run_iwctl known-networks list || true; } | awk '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+    function unquote(s) {
+      if (s ~ /^".*"$/) {
+        sub(/^"/, "", s)
+        sub(/"$/, "", s)
+      }
+      return s
+    }
+    function join_fields(first, last,    out, i) {
+      out = ""
+      for (i = first; i <= last; i++) {
+        out = out (out == "" ? "" : " ") $i
+      }
+      return out
+    }
+    function looks_like_type(s) {
+      s = tolower(s)
+      return s ~ /^(open|psk|8021x|owe|sae|wep)$/
+    }
+    /^[[:space:]]*$/ { next }
+    /^[-[:space:]]+$/ { next }
+    /^Terminate$/ { next }
+    /^(Known|Name[[:space:]]|Network[[:space:]]|---)/ { next }
+    {
+      security_idx = 0
+      for (i = 1; i <= NF; i++) {
+        if (looks_like_type($i)) {
+          security_idx = i
+          break
+        }
+      }
+
+      if (security_idx > 1) {
+        ssid = trim(join_fields(1, security_idx - 1))
+      } else {
+        ssid = trim($0)
+        sub(/[[:space:]]+(open|OPEN|psk|PSK|8021x|8021X|owe|OWE|sae|SAE|wep|WEP).*$/, "", ssid)
+      }
+
+      ssid = unquote(ssid)
+      if (ssid != "") print ssid
+    }
+  ' | awk '!seen[$0]++'
+}
+
+scan_networks() {
+  local device="$1"
+
+  printf 'Scanning Wi-Fi networks on %s...\n' "$device"
+  if ! run_iwctl station "$device" scan >/dev/null; then
+    printf 'Scan failed or timed out.\n'
+    pause
+  fi
+  sleep 1
+}
+
+scan_networks_quiet() {
+  local device="$1"
+
+  run_iwctl station "$device" scan >/dev/null || true
+}
+
+fzf_source() {
+  local device="$1"
+  local scan="${2-}"
+  local known
+
+  if [[ "$scan" == "--scan" ]]; then
+    IWCTL_TIMEOUT="$IWCTL_REFRESH_TIMEOUT" scan_networks_quiet "$device"
+  fi
+
+  known="$(known_networks | paste -sd $'\034' -)"
+  printf 'Hidden\t%s\n' '   Connect hidden network'
+  printf 'Disconnect\t%s\n' '   Disconnect'
+  IWCTL_TIMEOUT="$IWCTL_REFRESH_TIMEOUT" network_rows "$device" "" "$known"
+}
+
+choose_network() {
+  local device="$1"
+  local self device_arg source_cmd scan_cmd
+
+  self="$(printf '%q' "$0")"
+  device_arg="$(printf '%q' "$device")"
+  source_cmd="$self --fzf-source $device_arg"
+  scan_cmd="$source_cmd --scan"
+
+  fzf_source "$device" | fzf \
+    --delimiter=$'\t' \
+    --with-nth=2 \
+    --accept-nth=1 \
+    --prompt='Wi-Fi: ' \
+    --header='* connected | K known | Enter: connect/action | Hidden: add invisible network | Ctrl-R: rescan now | auto-refresh: 5s | Esc: close' \
+    --bind="start:reload($scan_cmd)" \
+    --bind="load:reload(sleep 5; $scan_cmd)" \
+    --bind="ctrl-r:reload($scan_cmd)" \
+    --no-multi
+}
+
+connect_network() {
+  local device="$1"
+  local ssid="$2"
+
+  printf 'Connecting to %s...\n\n' "$ssid"
+  if iwctl station "$device" connect "$ssid"; then
+    printf '\nConnected to %s.\n' "$ssid"
+    sleep 1
+    return 0
+  fi
+
+  printf '\nFailed to connect to %s.\n' "$ssid"
+  pause
+}
+
+connect_hidden_network() {
+  local device="$1"
+  local ssid
+  local passphrase
+
+  printf 'Hidden SSID: '
+  IFS= read -r ssid || return 0
+  [[ -n "$ssid" ]] || return 0
+
+  printf 'Passphrase (empty for saved/open network): '
+  IFS= read -rs passphrase || passphrase=""
+  printf '\n'
+
+  printf 'Connecting to hidden network %s...\n\n' "$ssid"
+  if [[ -n "$passphrase" ]]; then
+    if iwctl --passphrase "$passphrase" station "$device" connect-hidden "$ssid"; then
+      printf '\nConnected to hidden network %s.\n' "$ssid"
+      sleep 1
+      return 0
+    fi
+  elif iwctl station "$device" connect-hidden "$ssid"; then
+    printf '\nConnected to hidden network %s.\n' "$ssid"
+    sleep 1
+    return 0
+  fi
+
+  printf '\nFailed to connect to hidden network %s.\n' "$ssid"
+  pause
+}
+
+main() {
+  if [[ "${1-}" == "--known-networks" ]]; then
+    known_networks
+    exit 0
+  fi
+
+  if [[ "${1-}" == "--fzf-source" ]]; then
+    shift
+    fzf_source "$@"
+    exit 0
+  fi
+
+  if ! command -v iwctl >/dev/null 2>&1; then
+    printf 'iwctl is not installed.\n'
+    pause
+    exit 1
+  fi
+
+  if ! command -v fzf >/dev/null 2>&1; then
+    printf 'fzf is not installed.\n'
+    pause
+    exit 1
+  fi
+
+  local device selection action ssid
+  device="$(choose_station)"
+
+  scan_networks "$device"
+  while true; do
+    selection="$(choose_network "$device")" || exit 0
+    action="${selection%%$'\t'*}"
+
+    case "$action" in
+      Hidden)
+        connect_hidden_network "$device"
+        ;;
+      Disconnect)
+        if ! iwctl station "$device" disconnect; then
+          printf '\nFailed to disconnect.\n'
+          pause
+        fi
+        ;;
+      *)
+        ssid="$action"
+        [[ -n "$ssid" ]] || continue
+        connect_network "$device" "$ssid"
+        ;;
+    esac
+  done
+}
+
+main "$@"
