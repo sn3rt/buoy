@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SERVER_NAME="$1"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # Extract from SSH config
 CONFIG_FILE="$HOME/.ssh/config"
@@ -20,12 +21,21 @@ HOST=$(awk -v host="$SERVER_NAME" '
     inblock && $1=="HostName" {print $2}
 ' "$CONFIG_FILE")
 
-if [[ -z "$HOST" || -z "$USER" ]]; then
-    echo "Error: Could not find HostName/User for $SERVER_NAME in $CONFIG_FILE"
+if [[ -z "$USER" ]]; then
+    echo "Error: Could not find User for $SERVER_NAME in $CONFIG_FILE"
     exit 1
 fi
-XF_ARGS=(/dynamic-resolution /cert:tofu)
+
+# HostName is optional in SSH config. When it is omitted, use the Host alias
+# and let normal name resolution (including /etc/hosts) resolve it.
+HOST="${HOST:-$SERVER_NAME}"
+#XF_ARGS=(/dynamic-resolution /cert:tofu)
 #XF_ARGS=(/smart-sizing /cert:tofu)
+XF_ARGS=(
+      /dynamic-resolution
+      /cert:tofu
+      /auth-pkg-list:!kerberos,!u2u
+)
 
 TMPLOG="$(mktemp --tmpdir rdp_log.XXXXXX)"
 cleanup() {
@@ -38,7 +48,8 @@ PIPE_PID=""
 
 # Start the client so it can prompt on our tty; write logs to TMPLOG.
 # Start client FIRST so its early output appears in the logfile.
-stdbuf -oL -eL xfreerdp3 /u:"$USER" /d: /v:"$HOST" "${XF_ARGS[@]}" < /dev/tty > "$TMPLOG" 2>&1 &
+OPENSSL_CONF="$SCRIPT_DIR/openssl-rdp.cnf" \
+  stdbuf -oL -eL xfreerdp3 /u:"$USER" /d: /v:"$HOST" "${XF_ARGS[@]}" < /dev/tty > "$TMPLOG" 2>&1 &
 XF_PID=$!
 
 # Monitor tail -> while pipeline. This is the important fixed bit:
