@@ -11,7 +11,9 @@ if [[ "${TERM-}" == "xterm-kitty" ]] && ! infocmp xterm-kitty >/dev/null 2>&1; t
   export TERM="xterm-256color"
 fi
 
-if [ -z "${DISPLAY-}" ] && [ "${XDG_VTNR-}" = "1" ]; then
+if [ -z "${DISPLAY-}" ] \
+  && [ "${XDG_VTNR-}" = "1" ] \
+  && command -v start-hyprland >/dev/null 2>&1; then
   exec start-hyprland
 fi
 
