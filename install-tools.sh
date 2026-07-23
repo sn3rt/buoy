@@ -232,6 +232,18 @@ install_btop() {
   install_bin "$bin" btop
 }
 
+print_tmux_build_dep_install_hint() {
+  if command -v pacman >/dev/null 2>&1; then
+    printf 'install-tools: on Arch Linux install them with:\n' >&2
+    printf '  sudo pacman -S --needed base-devel pkgconf libevent ncurses\n' >&2
+  elif command -v apt-get >/dev/null 2>&1; then
+    printf 'install-tools: on Ubuntu/Debian install them with:\n' >&2
+    printf '  sudo apt install build-essential pkg-config libevent-dev libncurses-dev\n' >&2
+  else
+    printf 'install-tools: install a C compiler, make, pkg-config, libevent, and ncurses with your system package manager.\n' >&2
+  fi
+}
+
 check_tmux_build_deps() {
   local -a missing=()
 
@@ -256,8 +268,7 @@ check_tmux_build_deps() {
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     printf 'install-tools: tmux build dependencies missing: %s\n' "${missing[*]}" >&2
-    printf 'install-tools: on Ubuntu/Debian install them with:\n' >&2
-    printf '  sudo apt install build-essential pkg-config libevent-dev libncurses-dev\n' >&2
+    print_tmux_build_dep_install_hint
     return 1
   fi
 }

@@ -56,8 +56,9 @@ Nomad use the same versions. Most use release binaries; tmux is built from sourc
 Exact installed versions are skipped, while `--force` downloads them again.
 
 Terminal mode requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux
-on Ubuntu/Debian also requires `build-essential`, `pkg-config`, `libevent-dev`, and
-`libncurses-dev`. Neovim Treesitter parser builds require a C compiler.
+requires `base-devel`, `pkgconf`, `libevent`, and `ncurses` on Arch, or
+`build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev` on
+Ubuntu/Debian. Neovim Treesitter parser builds require a C compiler.
 
 To check whether newer pinned tool versions are available:
 
@@ -120,6 +121,18 @@ Neovim reapplies the highlight mappings if another colorscheme overwrites them.
 
 On the desktop, `theme-wallpaper` updates the wallpaper and live Kitty, tmux,
 Hyprland, and Quickshell colors from the generated palette.
+
+The generated theme supports persistent dark and light variants derived from
+the same wallpaper palette:
+
+```bash
+theme-wallpaper --dark
+theme-wallpaper --light
+theme-wallpaper --toggle
+```
+
+Changing mode keeps the current wallpaper. Later wallpaper changes retain the
+selected mode.
 
 ## Git helper
 

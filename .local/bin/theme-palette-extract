@@ -14,6 +14,9 @@ except ImportError:
     sys.exit(1)
 
 
+THEME_MODES = {"dark", "light"}
+
+
 @dataclass(frozen=True)
 class Color:
     r: int
@@ -77,6 +80,29 @@ def brighten(color: Color) -> Color:
     return Color(round(r * 255), round(g * 255), round(b * 255))
 
 
+def readable_on(color: Color, background: Color, minimum: float = 4.5) -> Color:
+    """Darken a color just enough to remain readable on a light surface."""
+    if color.contrast(background) >= minimum:
+        return color
+
+    target = Color(18, 22, 28)
+    for step in range(1, 101):
+        candidate = color.mix(target, step / 100)
+        if candidate.contrast(background) >= minimum:
+            return candidate
+    return target
+
+
+def light_bright(color: Color, background: Color) -> Color:
+    h, lightness, saturation = color.hls()
+    r, g, b = colorsys.hls_to_rgb(
+        h,
+        clamp(lightness + 0.08, high=0.52),
+        clamp(max(saturation, 0.38)),
+    )
+    return readable_on(Color(round(r * 255), round(g * 255), round(b * 255)), background)
+
+
 def extract_colors(image_path: pathlib.Path) -> list[Color]:
     with Image.open(image_path) as image:
         image = image.convert("RGB")
@@ -95,7 +121,7 @@ def extract_colors(image_path: pathlib.Path) -> list[Color]:
     return [color for _count, color in weighted]
 
 
-def palette_from(colors: list[Color]) -> dict[str, Color]:
+def dark_palette_from(colors: list[Color]) -> dict[str, Color]:
     if not colors:
         raise ValueError("no colors could be extracted from image")
 
@@ -146,13 +172,111 @@ def palette_from(colors: list[Color]) -> dict[str, Color]:
     }
 
 
+def light_palette_from(colors: list[Color]) -> dict[str, Color]:
+    if not colors:
+        raise ValueError("no colors could be extracted from image")
+
+    darkest = min(colors, key=lambda c: c.luminance())
+    accents = [color for color in colors if useful_accent(color)] or colors
+    accents = sorted(accents, key=lambda c: c.hls()[2], reverse=True)
+
+    # A light theme should still visibly belong to the wallpaper. Build the
+    # canvas and UI surfaces from its strongest hues instead of washing the
+    # lightest sampled color almost completely to white.
+    primary_seed = accents[0]
+    secondary_seed = accents[min(1, len(accents) - 1)]
+    accent_seed = accents[min(2, len(accents) - 1)]
+    background = primary_seed.with_lightness(0.89).with_saturation(
+        min(max(primary_seed.hls()[2], 0.20), 0.32)
+    )
+    foreground = darkest.with_lightness(0.12).with_saturation(min(darkest.hls()[2], 0.28))
+    if background.contrast(foreground) < 7:
+        foreground = Color(24, 28, 36)
+
+    primary = readable_on(
+        primary_seed.with_lightness(0.34).with_saturation(max(primary_seed.hls()[2], 0.48)),
+        background,
+    )
+    secondary = readable_on(
+        secondary_seed.with_lightness(0.33).with_saturation(0.44),
+        background,
+    )
+    accent = readable_on(
+        accent_seed.with_lightness(0.36).with_saturation(0.50),
+        background,
+    )
+    muted = readable_on(foreground.mix(background, 0.48), background)
+    bg_alt = secondary_seed.with_lightness(0.80).with_saturation(
+        min(max(secondary_seed.hls()[2], 0.26), 0.38)
+    )
+    selection = accent_seed.with_lightness(0.72).with_saturation(
+        min(max(accent_seed.hls()[2], 0.34), 0.48)
+    )
+    active_tab = primary_seed.with_lightness(0.70).with_saturation(
+        min(max(primary_seed.hls()[2], 0.38), 0.52)
+    )
+
+    red = readable_on(Color(190, 52, 62), background)
+    green = readable_on(Color(42, 132, 68), background)
+    yellow = readable_on(Color(145, 103, 0), background)
+
+    return {
+        "foreground": foreground,
+        "background": background,
+        "cursor": accent,
+        "selection_foreground": foreground,
+        "selection_background": selection,
+        "active_border_color": primary,
+        "inactive_border_color": bg_alt,
+        "active_tab_foreground": foreground,
+        "active_tab_background": active_tab,
+        "inactive_tab_foreground": muted,
+        "inactive_tab_background": bg_alt,
+        "color0": background,
+        "color1": red,
+        "color2": green,
+        "color3": yellow,
+        "color4": secondary,
+        "color5": primary,
+        "color6": accent,
+        "color7": foreground,
+        "color8": muted,
+        "color9": light_bright(red, background),
+        "color10": light_bright(green, background),
+        "color11": light_bright(yellow, background),
+        "color12": light_bright(secondary, background),
+        "color13": light_bright(primary, background),
+        "color14": light_bright(accent, background),
+        "color15": foreground.with_lightness(0.20),
+    }
+
+
+def palette_from(colors: list[Color], mode: str = "dark") -> dict[str, Color]:
+    if mode == "dark":
+        return dark_palette_from(colors)
+    if mode == "light":
+        return light_palette_from(colors)
+    raise ValueError(f"unsupported theme mode: {mode}")
+
+
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: theme-palette-extract image", file=sys.stderr)
+    args = sys.argv[1:]
+    mode = "dark"
+    if len(args) == 3 and args[0] == "--mode":
+        mode = args[1]
+        image_arg = args[2]
+    elif len(args) == 1:
+        image_arg = args[0]
+    else:
+        print("usage: theme-palette-extract [--mode dark|light] image", file=sys.stderr)
         return 2
 
-    image_path = pathlib.Path(sys.argv[1])
-    palette = palette_from(extract_colors(image_path))
+    if mode not in THEME_MODES:
+        print(f"theme-palette-extract: invalid mode: {mode}", file=sys.stderr)
+        return 2
+
+    image_path = pathlib.Path(image_arg)
+    palette = palette_from(extract_colors(image_path), mode)
     print(json.dumps({key: color.hex for key, color in palette.items()}, indent=2, sort_keys=True))
     return 0
 

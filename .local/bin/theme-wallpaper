@@ -12,7 +12,8 @@ HYPRPAPER_LOG="$STATE_DIR/hyprpaper.log"
 HYPRPAPER_CONFIG="$STATE_DIR/hyprpaper.conf"
 
 usage() {
-  printf 'usage: theme-wallpaper [--reapply] [image]\n' >&2
+  printf 'usage: theme-wallpaper [--dark|--light|--toggle] [image]\n' >&2
+  printf '       theme-wallpaper --reapply [image]\n' >&2
 }
 
 active_hyprland_signature() {
@@ -322,31 +323,34 @@ pick_wallpaper() {
 }
 
 MODE="full"
+COLOR_MODE_REQUEST=""
 IMAGE=""
 
-case $# in
-  0)
-    ;;
-  1)
-    if [[ "$1" == "--reapply" ]]; then
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reapply)
+      [[ "$MODE" == "full" && -z "$COLOR_MODE_REQUEST" ]] || { usage; exit 2; }
       MODE="reapply"
-    else
-      IMAGE="$1"
-    fi
-    ;;
-  2)
-    if [[ "$1" != "--reapply" ]]; then
+      ;;
+    --dark|--light|--toggle)
+      [[ "$MODE" == "full" && -z "$COLOR_MODE_REQUEST" ]] || { usage; exit 2; }
+      COLOR_MODE_REQUEST="${1#--}"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --*)
       usage
       exit 2
-    fi
-    MODE="reapply"
-    IMAGE="$2"
-    ;;
-  *)
-    usage
-    exit 2
-    ;;
-esac
+      ;;
+    *)
+      [[ -z "$IMAGE" ]] || { usage; exit 2; }
+      IMAGE="$1"
+      ;;
+  esac
+  shift
+done
 
 if ! command -v hyprctl >/dev/null 2>&1; then
   printf 'theme-wallpaper: hyprctl is required\n' >&2
@@ -356,11 +360,36 @@ fi
 mkdir -p "$STATE_DIR"
 refresh_hyprland_env
 
+COLOR_MODE="dark"
+if [[ -f "$STATE_DIR/mode" ]]; then
+  saved_mode="$(sed -n '1p' "$STATE_DIR/mode")"
+  if [[ "$saved_mode" == "dark" || "$saved_mode" == "light" ]]; then
+    COLOR_MODE="$saved_mode"
+  fi
+fi
+
+case "$COLOR_MODE_REQUEST" in
+  dark|light)
+    COLOR_MODE="$COLOR_MODE_REQUEST"
+    ;;
+  toggle)
+    if [[ "$COLOR_MODE" == "dark" ]]; then
+      COLOR_MODE="light"
+    else
+      COLOR_MODE="dark"
+    fi
+    ;;
+esac
+
 if [[ "$MODE" == "reapply" && -z "$IMAGE" ]]; then
   if [[ ! -f "$STATE_DIR/current-wallpaper" ]]; then
     printf 'theme-wallpaper: no current wallpaper saved for --reapply: %s\n' "$STATE_DIR/current-wallpaper" >&2
     exit 1
   fi
+  IMAGE="$(sed -n '1p' "$STATE_DIR/current-wallpaper")"
+fi
+
+if [[ -z "$IMAGE" && -n "$COLOR_MODE_REQUEST" && -f "$STATE_DIR/current-wallpaper" ]]; then
   IMAGE="$(sed -n '1p' "$STATE_DIR/current-wallpaper")"
 fi
 
@@ -384,7 +413,7 @@ fi
 
 mkdir -p "$STATE_DIR"
 
-"$THEME_PALETTE_GENERATOR" "$IMAGE" "$STATE_DIR"
+"$THEME_PALETTE_GENERATOR" "$IMAGE" "$STATE_DIR" "$COLOR_MODE"
 
 set_wallpaper "$IMAGE" || true
 
@@ -394,5 +423,6 @@ apply_tmux_theme
 apply_quickshell_theme
 
 printf 'Wallpaper: %s\n' "$IMAGE"
+printf 'Mode: %s\n' "$COLOR_MODE"
 printf 'Palette: %s\n' "$PALETTE"
 printf 'Palette preview: %s\n' "$PALETTE_IMAGE"

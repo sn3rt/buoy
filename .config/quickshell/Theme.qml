@@ -12,8 +12,6 @@ QtObject {
 
     readonly property color bg: colorValue("background", "#150e0e")
     readonly property color bgAlt: colorValue("inactive_tab_background", "#3c280f")
-    readonly property color panel: mixColor(bg, primary, 0.18, 0.90)
-    readonly property color panelStrong: mixColor(bg, primary, 0.18, 0.96)
     readonly property color fg: colorValue("foreground", "#eeebe2")
     readonly property color muted: colorValue("color8", "#86817c")
     readonly property color subtle: colorValue("color12", "#c6ac81")
@@ -21,6 +19,9 @@ QtObject {
     readonly property color accent: colorValue("color6", "#c79b61")
     readonly property color warning: colorValue("color3", "#e2b24e")
     readonly property color error: colorValue("color1", "#e5575d")
+    readonly property bool isLight: relativeLuminance(bg) > 0.5
+    readonly property color panel: isLight ? alphaColor(bgAlt, 0.94) : mixColor(bg, primary, 0.18, 0.90)
+    readonly property color panelStrong: isLight ? mixColor(bgAlt, primary, 0.06, 0.98) : mixColor(bg, primary, 0.18, 0.96)
 
     readonly property FileView paletteFile: FileView {
         id: paletteFile
@@ -64,5 +65,21 @@ QtObject {
             a.b * (1 - clamped) + b.b * clamped,
             alpha
         );
+    }
+
+    function alphaColor(color, alpha) {
+        return Qt.rgba(color.r, color.g, color.b, alpha);
+    }
+
+    function relativeLuminance(color) {
+        function linear(channel) {
+            return channel <= 0.04045
+                ? channel / 12.92
+                : Math.pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        return 0.2126 * linear(color.r)
+            + 0.7152 * linear(color.g)
+            + 0.0722 * linear(color.b);
     }
 }
