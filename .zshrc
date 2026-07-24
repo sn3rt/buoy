@@ -44,7 +44,11 @@ zinit light joshskidmore/zsh-fzf-history-search
 autoload -Uz compinit
 compinit
 
-if [[ "${TERM-}" == "linux" ]]; then
+if [[ "${TERM-}" == "linux" ]] \
+  || { [[ -n "${XDG_VTNR-}" ]] \
+    && [[ -z "${DISPLAY-}" ]] \
+    && [[ -z "${WAYLAND_DISPLAY-}" ]] \
+    && [[ -z "${SSH_CONNECTION-}" ]]; }; then
   export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship-tty.toml"
 else
   export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
