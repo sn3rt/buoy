@@ -5,7 +5,7 @@ add_newline = false
 format = "$custom.nomad$username$hostname $directory$git_branch$git_status $character"
 
 [custom.nomad]
-when = 'test -n "$NOMAD_BIN"'
+when = 'test -n "$DOTS" && test -n "$NOMAD_BIN" && test "$NOMAD_BIN" = "$DOTS/.local/bin" && test -f "$DOTS/.nomad-shell"'
 format = "[N:]($style)"
 style = "bright-cyan bold"
 
