@@ -1,0 +1,51 @@
+# Console-safe Starship theme for the Linux virtual terminal.
+# Keep this ASCII-only: the kernel console font usually lacks Nerd Font glyphs.
+add_newline = false
+
+format = "$custom.nomad$username$hostname $directory$git_branch$git_status $character"
+
+[custom.nomad]
+when = 'test -n "$NOMAD_BIN"'
+format = "[N:]($style)"
+style = "bright-cyan bold"
+
+[username]
+style_user = "cyan"
+style_root = "red bold"
+format = "[$user]($style)"
+show_always = true
+
+[hostname]
+style = "bright-cyan"
+format = "[@$hostname]($style)"
+disabled = false
+
+[directory]
+style = "white bold"
+format = "[$path]($style)"
+truncation_length = 3
+
+[git_branch]
+style = "cyan"
+format = " [git:$branch]($style)"
+
+[git_status]
+style = "yellow"
+format = "[$all_status$ahead_behind]($style)"
+conflicted = "="
+ahead = ">"
+behind = "<"
+diverged = "<>"
+up_to_date = ""
+untracked = "u"
+stashed = "$"
+modified = "!"
+staged = "+"
+renamed = "r"
+deleted = "x"
+typechanged = "t"
+
+[character]
+success_symbol = "[>](green)"
+error_symbol = "[>](red)"
+vicmd_symbol = "[<](blue)"

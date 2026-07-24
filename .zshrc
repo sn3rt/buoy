@@ -44,7 +44,11 @@ zinit light joshskidmore/zsh-fzf-history-search
 autoload -Uz compinit
 compinit
 
-export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
+if [[ "${TERM-}" == "linux" ]]; then
+  export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship-tty.toml"
+else
+  export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
+fi
 
 # Enable Starship prompt
 if command -v starship >/dev/null 2>&1; then
