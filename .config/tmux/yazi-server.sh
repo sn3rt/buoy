@@ -33,12 +33,16 @@ wait_for_close() {
   IFS= read -r -n 1 -s _ || true
 }
 
+config_changed=0
+
 write_config() {
+  local config_tmp="$config_dir/yazi.toml.new"
+
   mkdir -p "$config_dir"
 
-  cat >"$config_dir/yazi.toml" <<'EOF'
+  cat >"$config_tmp" <<'EOF'
 [mgr]
-ratio = [1, 4, 0]
+ratio = [1, 4, 3]
 linemode = "btime_and_size"
 
 [preview]
@@ -58,8 +62,6 @@ prepend_rules = [
 
 [plugin]
 prepend_previewers = [
-  { url = "*", run = "noop" },
-  { url = "*/", run = "noop" },
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },
@@ -68,8 +70,6 @@ prepend_previewers = [
   { url = "*.tiff", run = "noop" },
 ]
 prepend_preloaders = [
-  { url = "*", run = "noop" },
-  { url = "*/", run = "noop" },
   { mime = "image/*", run = "noop" },
   { mime = "video/*", run = "noop" },
   { mime = "application/pdf", run = "noop" },
@@ -78,6 +78,13 @@ prepend_preloaders = [
   { url = "*.tiff", run = "noop" },
 ]
 EOF
+
+  if [[ ! -f "$config_dir/yazi.toml" ]] || ! cmp -s "$config_tmp" "$config_dir/yazi.toml"; then
+    mv "$config_tmp" "$config_dir/yazi.toml"
+    config_changed=1
+  else
+    rm "$config_tmp"
+  fi
 
   if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/yazi/init.lua" ]]; then
     ln -sf "${XDG_CONFIG_HOME:-$HOME/.config}/yazi/init.lua" "$config_dir/init.lua"
@@ -95,6 +102,10 @@ ensure_yazi() {
   write_config
 
   env -u TMUX tmux -L "$socket_name" source-file "$conf" 2>/dev/null || true
+
+  if (( config_changed )) && env -u TMUX tmux -L "$socket_name" has-session -t yazi 2>/dev/null; then
+    env -u TMUX tmux -L "$socket_name" kill-session -t yazi
+  fi
 
   if ! env -u TMUX tmux -L "$socket_name" has-session -t yazi 2>/dev/null; then
     env -u TMUX tmux -L "$socket_name" -f "$conf" new-session -d -s yazi -c "$cwd" \
