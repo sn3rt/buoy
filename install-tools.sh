@@ -10,6 +10,7 @@ set -euo pipefail
 #   ./install-tools.sh --desktop    # install Arch desktop packages and terminal tools
 #   ./install-tools.sh --force      # re-download all terminal tools
 #   ./install-tools.sh nvim         # install one terminal tool
+#   ./install-tools.sh hexe         # install Hexe locally (not part of terminal/Nomad defaults)
 #
 # Requires: curl, tar, awk, gzip, bzip2, unzip (unzip only needed for yazi)
 # Installs to: ${XDG_BIN_HOME:-~/.local/bin}/
@@ -323,6 +324,42 @@ install_tree_sitter() {
   install_bin "$bin" tree-sitter
 }
 
+install_hexe() {
+  local version="$1" arch="$2"
+  local asset="hexe-${arch}-linux.tar.gz"
+  local base_url="https://github.com/termworks/hexe/releases/download/${version}"
+  local archive="$WORK_DIR/$asset"
+  local checksum="$WORK_DIR/$asset.sha256"
+  local extract_dir="$WORK_DIR/hexe"
+  local dest="$TOOL_ROOT/hexe-${version}-${arch}"
+
+  printf '  downloading %s/%s\n' "$base_url" "$asset" >&2
+  curl -fsSL -o "$archive" "$base_url/$asset"
+  curl -fsSL -o "$checksum" "$base_url/$asset.sha256"
+
+  if ! command -v sha256sum >/dev/null 2>&1; then
+    printf 'install-tools: sha256sum is required to verify Hexe releases\n' >&2
+    return 1
+  fi
+  (
+    cd "$WORK_DIR"
+    sha256sum -c "$asset.sha256"
+  )
+
+  mkdir -p "$extract_dir" "$TOOL_ROOT"
+  tar -xzf "$archive" -C "$extract_dir"
+  if [[ ! -x "$extract_dir/hexe" ]]; then
+    printf 'install-tools: Hexe binary not found in %s\n' "$asset" >&2
+    return 1
+  fi
+
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  cp "$extract_dir/hexe" "$dest/hexe"
+  chmod +x "$dest/hexe"
+  link_bin "$dest/hexe" hexe
+}
+
 dispatch_install() {
   local tool="$1" version="$2" arch="$3"
   case "$tool" in
@@ -336,6 +373,7 @@ dispatch_install() {
     btop)     install_btop     "$version" "$arch" ;;
     tmux)     install_tmux     "$version" "$arch" ;;
     tree_sitter) install_tree_sitter "$version" "$arch" ;;
+    hexe)     install_hexe     "$version" "$arch" ;;
     *)
       printf 'install-tools: unknown tool: %s\n' "$tool" >&2
       return 1 ;;
@@ -438,6 +476,17 @@ installed_version() {
     tmux)
       "$bin" -V 2>/dev/null | awk 'NR==1 { print $2 }'
       ;;
+    hexe)
+      local resolved base
+      resolved="$(readlink -f "$bin" 2>/dev/null || true)"
+      base="$(basename "$(dirname "$resolved")")"
+      if [[ "$base" == hexe-*-* ]]; then
+        base="${base#hexe-}"
+        printf '%s\n' "${base%-*}"
+      else
+        return 1
+      fi
+      ;;
     *)
       return 1
       ;;
@@ -520,6 +569,13 @@ main() {
   done < <(parse_versions "$toml")
 
   local -a TOOLS=(nvim starship fzf fd eza yazi atuin btop tmux tree_sitter)
+
+  # Hexe is a local desktop pilot for now. Keep it out of the default
+  # terminal list because Nomad runs that list on remote hosts. An explicit
+  # `install-tools.sh hexe` remains available on any supported local Linux.
+  if [[ "$profile" == "desktop" || "$only_tool" == "hexe" ]]; then
+    TOOLS+=(hexe)
+  fi
 
   for tool in "${TOOLS[@]}"; do
     [[ -n "$only_tool" && "$tool" != "$only_tool" ]] && continue

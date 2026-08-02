@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+  dir="$PWD"
+elif [[ $# -eq 1 ]]; then
+  dir="$1"
+else
+  printf 'usage: hxe [DIR]\n' >&2
+  exit 2
+fi
+
+if [[ -n "${HEXE_PANE_UUID-}" ]]; then
+  printf 'hxe: already inside Hexe; detach first with Ctrl+Alt+d, then run hxe again\n' >&2
+  exit 2
+fi
+
+if ! command -v hexe >/dev/null 2>&1; then
+  printf 'hxe: command not found: hexe\n' >&2
+  printf 'hxe: install it with ./install-tools.sh hexe\n' >&2
+  exit 127
+fi
+
+if [[ ! -d "$dir" ]]; then
+  printf 'hxe: not a directory: %s\n' "$dir" >&2
+  exit 2
+fi
+
+dir="$(realpath "$dir")"
+base="$(basename "$dir")"
+base="${base//[^A-Za-z0-9._-]/-}"
+[[ -n "$base" ]] || base="session"
+
+if command -v sha1sum >/dev/null 2>&1; then
+  hash="$(printf '%s' "$dir" | sha1sum | awk '{print substr($1, 1, 6)}')"
+else
+  hash="$(printf '%s' "$dir" | cksum | awk '{print $1}')"
+fi
+name="${base}-${hash}"
+
+cd "$dir"
+
+# Hexe 0.2.1's attach-by-directory command exits successfully even when no
+# session matches. Query the directory-filtered JSON first so first launch
+# reliably creates a session instead of silently doing nothing.
+session_json="$(hexe session list "$dir" --json 2>/dev/null || true)"
+if [[ "$session_json" == *'"connected":[{'* || "$session_json" == *'"detached":[{'* ]]; then
+  exec hexe terminal attach .
+fi
+
+exec hexe terminal new --name "$name"

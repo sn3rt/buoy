@@ -10,7 +10,7 @@ hl.monitor({
 })
 
 local terminal = "kitty --single-instance --listen-on unix:/tmp/dots-kitty-$(id -u).sock"
-local lock = "pidof hyprlock || hyprlock"
+local lock = "pidof hyprlock || hyprlock --immediate-render"
 local browser = "flatpak run app.zen_browser.zen"
 local mainMod = "SUPER"
 local startup = home .. "/.local/bin/hypr-startup"
@@ -565,14 +565,26 @@ hl.bind(mainMod .. " + CTRL + H", move_window_to_adjacent_workspace(-1))
 hl.bind(mainMod .. " + CTRL + L", move_window_to_adjacent_workspace(1))
 hl.bind(mainMod .. " + CTRL + K", move_active_window_to_monitor("up"))
 hl.bind(mainMod .. " + CTRL + J", move_active_window_to_monitor("down"))
+hl.bind(mainMod .. " + CTRL + left", move_window_to_adjacent_workspace(-1))
+hl.bind(mainMod .. " + CTRL + right", move_window_to_adjacent_workspace(1))
+hl.bind(mainMod .. " + CTRL + up", move_active_window_to_monitor("up"))
+hl.bind(mainMod .. " + CTRL + down", move_active_window_to_monitor("down"))
 hl.bind(mainMod .. " + ALT + H", focus_adjacent_workspace(-1))
 hl.bind(mainMod .. " + ALT + L", focus_adjacent_workspace(1))
 hl.bind(mainMod .. " + ALT + K", focus_monitor("up"))
 hl.bind(mainMod .. " + ALT + J", focus_monitor("down"))
+hl.bind(mainMod .. " + ALT + left", focus_adjacent_workspace(-1))
+hl.bind(mainMod .. " + ALT + right", focus_adjacent_workspace(1))
+hl.bind(mainMod .. " + ALT + up", focus_monitor("up"))
+hl.bind(mainMod .. " + ALT + down", focus_monitor("down"))
 hl.bind(mainMod .. " + ALT + SHIFT + H", swap_workspace_contents_on_current_monitor(-1))
 hl.bind(mainMod .. " + ALT + SHIFT + L", swap_workspace_contents_on_current_monitor(1))
 hl.bind(mainMod .. " + ALT + SHIFT + K", swap_active_workspace_with_monitor("up"))
 hl.bind(mainMod .. " + ALT + SHIFT + J", swap_active_workspace_with_monitor("down"))
+hl.bind(mainMod .. " + ALT + SHIFT + left", swap_workspace_contents_on_current_monitor(-1))
+hl.bind(mainMod .. " + ALT + SHIFT + right", swap_workspace_contents_on_current_monitor(1))
+hl.bind(mainMod .. " + ALT + SHIFT + up", swap_active_workspace_with_monitor("up"))
+hl.bind(mainMod .. " + ALT + SHIFT + down", swap_active_workspace_with_monitor("down"))
 
 for i = 1, 10 do
     local key = i % 10

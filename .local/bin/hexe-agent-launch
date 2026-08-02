@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+agent="${1:-}"
+
+wait_for_close() {
+  printf '\nPress any key to close...'
+  IFS= read -r -n 1 -s _ || true
+}
+
+require_command() {
+  if command -v "$1" >/dev/null 2>&1; then
+    return 0
+  fi
+  printf 'hexe-agent-launch: command not found: %s\n' "$1" >&2
+  printf 'cwd: %s\n' "$PWD" >&2
+  wait_for_close
+  exit 127
+}
+
+resolve_claude_session() {
+  local project_key project_dir latest_file="" file
+  local -a files=()
+
+  project_key="${PWD//\//-}"
+  project_dir="$HOME/.claude/projects/$project_key"
+  [[ -d "$project_dir" ]] || return 0
+
+  shopt -s nullglob
+  files=("$project_dir"/*.jsonl)
+  shopt -u nullglob
+
+  for file in "${files[@]}"; do
+    [[ -z "$latest_file" || "$file" -nt "$latest_file" ]] && latest_file="$file"
+  done
+  [[ -n "$latest_file" ]] && basename "$latest_file" .jsonl
+}
+
+case "$agent" in
+  codex)
+    require_command codex
+    if codex resume --last 2>/dev/null; then
+      exit 0
+    fi
+    exec codex
+    ;;
+  claude)
+    require_command claude
+    session="$(resolve_claude_session)"
+    if [[ -n "$session" ]]; then
+      exec claude --resume "$session"
+    fi
+    exec claude
+    ;;
+  *)
+    printf 'usage: hexe-agent-launch codex|claude\n' >&2
+    exit 2
+    ;;
+esac

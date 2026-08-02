@@ -54,14 +54,16 @@ else
   export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
 fi
 
-# Enable Starship prompt
-if command -v starship >/dev/null 2>&1; then
+# Hexe owns the prompt and installs its cwd/environment communication hooks
+# only inside Hexe panes. Normal local, tmux, and Nomad shells keep Starship.
+if [[ -n "${HEXE_PANE_UUID-}" ]] && command -v hexe >/dev/null 2>&1; then
+  eval "$(hexe shell init zsh)"
+elif command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
 fi
 
 # Keybindings
 bindkey -v
-bindkey '^p' history-search-backward
 bindkey '^n' history-search-forward
 
 # History

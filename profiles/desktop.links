@@ -1,12 +1,16 @@
 .config/hypr
 .config/quickshell
 .config/yazi-desktop
+.config/hexe
 .local/bin/capture-action
 .local/bin/capture-menu
 .local/bin/desktop-app-launcher
 .local/bin/hypr-hotplug
 .local/bin/hypr-monitors-auto
 .local/bin/hypr-startup
+.local/bin/hexe-agent-launch
+.local/bin/hexe-fzf
+.local/bin/hxe
 .local/bin/restart-quickshell
 .local/bin/theme-palette-extract
 .local/bin/theme-palette-generate

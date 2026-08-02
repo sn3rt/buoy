@@ -57,6 +57,7 @@ terminal_payload() {
   done < "$manifest"
 
   printf '%s\n' \
+    .config/nomad/bashrc \
     install-tools.sh \
     update-versions.sh \
     versions.toml \
@@ -91,8 +92,9 @@ session_state_file() {
 }
 
 run_remote_shell() {
-  local repo_root ssh_dest socket tmp_remote status remote_zsh remote_launcher state_file payload_file
-  local use_waypipe=0
+  local repo_root ssh_dest socket tmp_remote status remote_shell remote_shell_name
+  local remote_launcher state_file payload_file
+  local use_waypipe=0 payload_needed=0
   local -a ssh_args=()
 
   repo_root="$(resolve_repo_root)"
@@ -175,24 +177,40 @@ run_remote_shell() {
 
   if [[ -n "$tmp_remote" ]] && ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "test -d $(printf '%q' "$tmp_remote") && test -f $(printf '%q' "$tmp_remote/.zshrc")" >/dev/null 2>&1; then
     log "reusing remote temp directory $tmp_remote"
+    if ! ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "test -f $(printf '%q' "$tmp_remote/.config/nomad/bashrc")" >/dev/null 2>&1; then
+      log 'updating reused remote directory with Bash support'
+      payload_needed=1
+    fi
   else
     [[ -n "$tmp_remote" ]] && log "saved remote temp directory is gone; creating a new one"
     log 'creating remote temp directory'
     tmp_remote="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'mktemp -d "${TMPDIR:-/tmp}/nomad.XXXXXXXX"')"
+    payload_needed=1
+  fi
 
+  if [[ $payload_needed -eq 1 ]]; then
     log "streaming dotfiles to $ssh_dest:$tmp_remote"
     tar -C "$repo_root" -cf - -T "$payload_file" \
       | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "tar -C $(printf '%q' "$tmp_remote") -xf -"
     printf '%s\n' "$tmp_remote" > "$state_file"
   fi
 
-  log 'resolving remote zsh path'
-  remote_zsh="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'command -v zsh')"
-
-  if [[ -z "$remote_zsh" ]]; then
-    printf 'nomad: zsh is not installed on the remote host\n' >&2
+  log 'resolving remote shell'
+  if ! remote_shell="$(ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" 'command -v zsh 2>/dev/null || command -v bash 2>/dev/null')" \
+    || [[ -z "$remote_shell" ]]; then
+    printf 'nomad: neither zsh nor bash is installed on the remote host\n' >&2
     exit 1
   fi
+  remote_shell_name="$(basename "$remote_shell")"
+
+  case "$remote_shell_name" in
+    zsh|bash) ;;
+    *)
+      printf 'nomad: unsupported remote shell resolved: %s\n' "$remote_shell" >&2
+      exit 1
+      ;;
+  esac
+  log "using remote $remote_shell_name at $remote_shell"
 
   if [[ $use_waypipe -eq 1 ]]; then
     log 'checking remote waypipe'
@@ -206,9 +224,11 @@ run_remote_shell() {
   remote_launcher="$tmp_remote/.nomad-shell"
   {
     printf '#!/usr/bin/env sh\n'
-    printf 'export SHELL=%s\n' "$(printf '%q' "$remote_zsh")"
+    printf 'export SHELL=%s\n' "$(printf '%q' "$remote_shell")"
     printf 'export DOTS=%s\n' "$(printf '%q' "$tmp_remote")"
-    printf 'export ZDOTDIR=%s\n' "$(printf '%q' "$tmp_remote")"
+    printf 'export CODEX_HOME=%s\n' "$(printf '%q' "$tmp_remote/.codex")"
+    printf 'mkdir -p "$CODEX_HOME" || exit 1\n'
+    printf 'chmod 700 "$CODEX_HOME" || exit 1\n'
     printf 'export NOMAD_BIN=%s\n' "$(printf '%q' "$tmp_remote/.local/bin")"
     printf 'export XDG_BIN_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/bin")"
     printf 'export XDG_CONFIG_HOME=%s\n' "$(printf '%q' "$tmp_remote/.config")"
@@ -216,33 +236,43 @@ run_remote_shell() {
     printf 'export XDG_STATE_HOME=%s\n' "$(printf '%q' "$tmp_remote/.local/state")"
     printf 'export XDG_CACHE_HOME=%s\n' "$(printf '%q' "$tmp_remote/.cache")"
     printf 'export PATH=%s:$PATH\n' "$(printf '%q' "$tmp_remote/.local/bin")"
-    printf '%s -il\n' "$(printf '%q' "$remote_zsh")"
+    if [[ "$remote_shell_name" == "zsh" ]]; then
+      printf 'export ZDOTDIR=%s\n' "$(printf '%q' "$tmp_remote")"
+      printf '%s -il\n' "$(printf '%q' "$remote_shell")"
+    else
+      printf 'unset ZDOTDIR\n'
+      printf '%s --noprofile --rcfile %s -i\n' \
+        "$(printf '%q' "$remote_shell")" \
+        "$(printf '%q' "$tmp_remote/.config/nomad/bashrc")"
+    fi
     printf 'nomad_status=$?\n'
     printf 'exit $nomad_status\n'
   } | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "cat > $(printf '%q' "$remote_launcher") && chmod +x $(printf '%q' "$remote_launcher")"
 
-  {
-    printf '\n# nomad helper begin\n'
-    printf 'damon() {\n'
-    printf '  local nomad_dir="${DOTS-}"\n'
-    printf '  if [[ -z "$nomad_dir" || ! -f "$nomad_dir/.nomad-shell" ]]; then\n'
-    printf '    print -u2 "damon: not inside a nomad temp environment"\n'
-    printf '    return 1\n'
-    printf '  fi\n'
-    printf '  cd "${HOME:-/}" 2>/dev/null || cd / 2>/dev/null || true\n'
-    printf '  command rm -rf -- "$nomad_dir"\n'
-    printf '  exit 0\n'
-    printf '}\n'
-    printf '# nomad helper end\n'
-  } | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "grep -q '^# nomad helper begin$' $(printf '%q' "$tmp_remote/.zshrc") 2>/dev/null || cat >> $(printf '%q' "$tmp_remote/.zshrc")"
+  if [[ "$remote_shell_name" == "zsh" ]]; then
+    {
+      printf '\n# nomad helper begin\n'
+      printf 'damon() {\n'
+      printf '  local nomad_dir="${DOTS-}"\n'
+      printf '  if [[ -z "$nomad_dir" || ! -f "$nomad_dir/.nomad-shell" ]]; then\n'
+      printf '    print -u2 "damon: not inside a nomad temp environment"\n'
+      printf '    return 1\n'
+      printf '  fi\n'
+      printf '  cd "${HOME:-/}" 2>/dev/null || cd / 2>/dev/null || true\n'
+      printf '  command rm -rf -- "$nomad_dir"\n'
+      printf '  exit 0\n'
+      printf '}\n'
+      printf '# nomad helper end\n'
+    } | ssh -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "grep -q '^# nomad helper begin$' $(printf '%q' "$tmp_remote/.zshrc") 2>/dev/null || cat >> $(printf '%q' "$tmp_remote/.zshrc")"
+  fi
 
   status=0
 
   if [[ $use_waypipe -eq 1 ]]; then
-    log 'starting remote zsh with temporary dotfiles through waypipe'
+    log "starting remote $remote_shell_name with temporary dotfiles through waypipe"
     waypipe ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_launcher" || status=$?
   else
-    log 'starting remote zsh with temporary dotfiles'
+    log "starting remote $remote_shell_name with temporary dotfiles"
     ssh -tt -S "$socket" -o ControlPath="$socket" "${ssh_args[@]}" "$ssh_dest" "$remote_launcher" || status=$?
   fi
 

@@ -55,6 +55,10 @@ Pinned terminal tools are installed into `~/.local/bin/` so local machines and
 Nomad use the same versions. Most use release binaries; tmux is built from source.
 Exact installed versions are skipped, while `--force` downloads them again.
 
+Hexe is currently a local-only desktop pilot. `./install-tools.sh --desktop`
+includes it, and `./install-tools.sh hexe` installs only Hexe. The default
+terminal tool list used by Nomad intentionally does not install it yet.
+
 Terminal mode requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux
 requires `base-devel`, `pkgconf`, `libevent`, and `ncurses` on Arch, or
 `build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev` on
@@ -85,12 +89,13 @@ What it does:
 
 - builds a payload from the tracked terminal profile and streams it to the remote host
 - unpacks into a temporary directory on the remote host
-- starts `zsh` with `ZDOTDIR` and the XDG paths pointed at that temporary copy
+- starts `zsh` when available, otherwise Bash, with the XDG paths pointed at that temporary copy
 - reuses that temporary directory on later `nomad` connections to the same host
 
 Notes:
 
-- the local host needs `git`; the remote host needs `zsh`, `tar`, and `mktemp`
+- the local host needs `git`; the remote host needs either `zsh` or Bash, plus `tar` and `mktemp`
+- Bash fallback sessions keep the Buoy prompt, tools, aliases, history, Atuin, and Direnv, but omit zsh-only Zinit plugins such as autosuggestions and `fzf-tab`
 - `nomad` is for an interactive shell only; it does not support passing a remote command
 - `nomad` just opens a normal interactive SSH session; start `tmux` on the remote host yourself if you want it there
 - `nomad --waypipe` / `nomad -wp` starts the final shell through Waypipe so Wayland GUI apps launched remotely can open locally
@@ -98,6 +103,8 @@ Notes:
 - Waypipe mode requires `waypipe` on both the local and remote machine
 - normal `exit` keeps the temporary directory alive so another terminal can reconnect to it
 - run `damon` inside the `nomad` shell to remove the temporary dotfiles and leave the SSH session
+- Codex uses `CODEX_HOME` inside the temporary directory, so Nomad-scoped Codex logins, configuration, and sessions are removed by `damon`
+- credentials created outside Nomad in the remote account's normal `~/.codex` are not moved or removed
 - desktop configuration is never included in the Nomad payload
 - config, cache, logs, and tools installed with `./install-tools.sh --terminal` stay in that temporary directory until `damon`, reboot, or remote `/tmp` cleanup removes it
 - set `DOTFILES_DIR` if you want `nomad` to use a repo path other than the one inferred from the script location
@@ -163,3 +170,45 @@ Popups:
 - `Alt+f`: fzf file picker
 
 `Alt+c` closes the active popup. Codex and Claude keep running in their isolated tmux popup sessions; Yazi and fzf are short-lived. The popup tools need to be installed on the machine where tmux is running.
+
+## Hexe (local pilot)
+
+[Hexe](https://github.com/termworks/hexe) is installed alongside tmux; it does
+not replace `tmx` or change any tmux session. Use `hxe [path]` to create or
+reattach the Hexe session rooted at a directory. Run native Hexe commands with
+`hexe`, for example `hexe session list` and `hexe config check`.
+
+Hexe uses its own prompt only inside Hexe panes. Normal shells, tmux, and Nomad
+continue to use Starship. Hexe sessions and sticky floats survive frontend
+detach/restart; their state lives below `${XDG_STATE_HOME:-~/.local/state}/hexe`.
+
+Pane/tab keys:
+
+- `Alt+h/j/k/l` or `Alt+Arrow`: focus panes
+- `Alt+q` / `Alt+Shift+q`: horizontal/vertical split
+- `Alt+x`: close pane with confirmation
+- `Alt+u/o`: previous/next tab
+- `Alt+s`: label panes; lowercase focuses and uppercase swaps
+- `Alt+z`: zoom pane
+- `Alt+/`: search scrollback; `Alt+y`: keyboard copy mode
+- `Alt+r`: reload Hexe config
+- `Ctrl+Alt+p`: toggle a random Pokémon sprite in the focused pane
+- `Ctrl+Alt+d`: detach and leave the session running
+
+Native persistent floats:
+
+- `Alt+p`: Codex
+- `Alt+b`: Claude
+- `Alt+e`: Yazi, using the normal Yazi config and Kitty image previews
+- `Alt+f`: fzf file picker; the selected file opens in the creator pane
+- `Alt+c`: hide the focused configured float without killing its process
+
+Current parity differences: Hexe uses `Alt+s` plus an uppercase pane label
+instead of directional `Alt+Shift+h/j/k/l` swaps; it has no equal-layout action
+for tmux's `Alt+t`; and it uses disown/adopt rather than directly moving a pane
+to an adjacent tab. Run `hxe` outside Hexe; detach first when changing rooted
+sessions.
+
+Hexe also supports project `.hexe.lua` layouts, saved-layout freeze/restore,
+pane recording, synchronized input, notifications, and Linux namespace/cgroup
+isolation. Those are deliberately left out of this first local parity pilot.

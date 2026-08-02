@@ -35,6 +35,8 @@ XF_ARGS=(
       /dynamic-resolution
       /cert:tofu
       /auth-pkg-list:!kerberos,!u2u
+      /sound
+      /audio-mode:redirect
 )
 
 TMPLOG="$(mktemp --tmpdir rdp_log.XXXXXX)"

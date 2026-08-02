@@ -1,0 +1,73 @@
+# Bash configuration used only by Nomad's temporary remote environment.
+
+if [[ $- != *i* ]]; then
+  return
+fi
+
+if [[ "${TERM-}" == "xterm-kitty" ]] && ! infocmp xterm-kitty >/dev/null 2>&1; then
+  export TERM="xterm-256color"
+fi
+
+[[ -d "$HOME/.nix-profile/bin" ]] && export PATH="$HOME/.nix-profile/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+[[ -n "${NOMAD_BIN-}" ]] && export PATH="$NOMAD_BIN:$PATH"
+export EDITOR="nvim"
+export SUDO_EDITOR="${NOMAD_BIN:-$HOME/.local/bin}/nvim"
+
+# Optional secrets use simple shell exports and can be shared with zsh.
+[[ -f "$HOME/.config/secrets/.zshenv" ]] && source "$HOME/.config/secrets/.zshenv"
+
+history_dir="${XDG_STATE_HOME:-$HOME/.local/state}/bash"
+mkdir -p "$history_dir"
+HISTFILE="$history_dir/history"
+HISTSIZE=5000
+HISTFILESIZE=10000
+HISTCONTROL=ignoreboth:erasedups
+shopt -s histappend
+
+set -o vi
+bind '"\C-p": history-search-backward'
+bind '"\C-n": history-search-forward'
+
+if [[ "${TERM-}" == "linux" ]] \
+  || { [[ -n "${XDG_VTNR-}" ]] \
+    && [[ -z "${DISPLAY-}" ]] \
+    && [[ -z "${WAYLAND_DISPLAY-}" ]] \
+    && [[ -z "${SSH_CONNECTION-}" ]]; }; then
+  export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship-tty.toml"
+else
+  export STARSHIP_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml"
+fi
+
+if command -v starship >/dev/null 2>&1; then
+  eval "$(starship init bash)"
+fi
+
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init bash)"
+fi
+
+if command -v direnv >/dev/null 2>&1; then
+  eval "$(direnv hook bash)"
+fi
+
+[[ -f "$HOME/.fzf.bash" ]] && source "$HOME/.fzf.bash"
+
+alias ls="${NOMAD_BIN:-$HOME/.local/bin}/ezalias ls"
+alias ll="${NOMAD_BIN:-$HOME/.local/bin}/ezalias ll"
+alias vi='nvim'
+alias vim='nvim'
+alias snert='cat "$HOME/.config/snert-logo"'
+alias rdp='~/.scripts/rdp_connect.sh'
+
+damon() {
+  local nomad_dir="${DOTS-}"
+  if [[ -z "$nomad_dir" || ! -f "$nomad_dir/.nomad-shell" ]]; then
+    printf '%s\n' "damon: not inside a nomad temp environment" >&2
+    return 1
+  fi
+  cd "${HOME:-/}" 2>/dev/null || cd / 2>/dev/null || true
+  command rm -rf -- "$nomad_dir"
+  exit 0
+}

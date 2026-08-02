@@ -12,7 +12,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSIONS_FILE="$REPO_ROOT/versions.toml"
 
-TOOLS=(nvim starship fzf fd eza yazi atuin btop tmux tree_sitter)
+TOOLS=(nvim starship fzf fd eza yazi atuin btop tmux tree_sitter hexe)
 
 declare -A REPOS=(
   [nvim]="neovim/neovim"
@@ -25,6 +25,7 @@ declare -A REPOS=(
   [btop]="aristocratos/btop"
   [tmux]="tmux/tmux"
   [tree_sitter]="tree-sitter/tree-sitter"
+  [hexe]="termworks/hexe"
 )
 
 usage() {

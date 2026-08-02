@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+wait_for_close() {
+  printf '\nPress any key to close...'
+  IFS= read -r -n 1 -s _ || true
+}
+
+for command_name in fzf hexe; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    printf 'hexe-fzf: command not found: %s\n' "$command_name" >&2
+    wait_for_close
+    exit 127
+  fi
+done
+
+list_files() {
+  if command -v fd >/dev/null 2>&1; then
+    fd --hidden --follow --exclude .git --type f .
+  else
+    find . -type f -not -path '*/.git/*'
+  fi
+}
+
+file="$(list_files 2>/dev/null | fzf --prompt='files> ' --layout=reverse --exit-0 --bind 'alt-c:abort')"
+file="${file#./}"
+[[ -n "$file" ]] || exit 0
+
+shell_quote() {
+  local value="$1"
+  printf "'%s'" "${value//\'/\'\"\'\"\'}"
+}
+
+editor="${EDITOR:-nvim}"
+command_line="$editor $(shell_quote "$file")"
+hexe terminal send --creator --enter "$command_line"
