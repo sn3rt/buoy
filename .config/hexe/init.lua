@@ -62,7 +62,7 @@ local layout = hexe.layout("default", {
     }),
     hexe.float("fzf", {
       key = "f",
-      title = "Files",
+      title = "FZF",
       command = "hexe-fzf",
       size = { width = 90, height = 90 },
       attrs = {
@@ -87,16 +87,16 @@ return hexe.setup({
       error = 1,
     },
     styles = {
+      ["status.session"] = "bg:6 fg:0 bold",
+      ["status.title"] = "bg:0 fg:7",
       ["status.active"] = "bg:6 fg:0 bold",
       ["status.inactive"] = "bg:0 fg:8",
       ["status.base"] = "bg:0 fg:7",
-      ["prompt.primary"] = "bg:6 fg:0 bold",
-      ["prompt.secondary"] = "bg:0 fg:7",
-      ["prompt.error"] = "bg:1 fg:0 bold",
-    },
-    chars = {
-      split_vertical = "│",
-      split_horizontal = "─",
+      ["prompt.identity"] = "bg:0 fg:6",
+      ["prompt.directory"] = "bg:8 fg:7 bold",
+      ["prompt.git"] = "bg:6 fg:0",
+      ["prompt.success"] = "fg:2 bold",
+      ["prompt.error"] = "fg:1 bold",
     },
   }),
 
@@ -142,22 +142,28 @@ return hexe.setup({
       close = true,
     },
     selection_color = 8,
-    mouse = {
-      selection_override = { "ctrl", "alt" },
-    },
     splits = {
       color = { active = 6, passive = 8 },
-      chars = {
-        vertical = "│",
-        horizontal = "─",
-      },
     },
     floats = {
       defaults = {
         color = { active = 6, passive = 8 },
+        style = {
+          title = {
+            name = "title",
+            render = function(ctx)
+              local title = hexe.segment.title(ctx)
+              return {
+                { text = " ", style = "" },
+                { text = title, style = "fg:6 bold" },
+                { text = " ", style = "" },
+              }
+            end,
+            position = "topleft",
+          },
+        },
       },
       adhoc = {
-        size = { width = 90, height = 90 },
         color = { active = 6, passive = 8 },
       },
     },
@@ -171,7 +177,43 @@ return hexe.setup({
         priority = 1,
         builtin = function(_)
           return hexe.segment.builtin.session({
-            style = hexe.style("status.active"),
+            style = hexe.style("status.session"),
+            prefix = " ",
+            suffix = " ",
+          })
+        end,
+      }),
+      segment({
+        name = "title",
+        priority = 5,
+        builtin = function(_)
+          return hexe.segment.builtin.title({
+            style = hexe.style("status.title"),
+            prefix = " ",
+            suffix = " ",
+          })
+        end,
+      }),
+      segment({
+        name = "spinner",
+        priority = 10,
+        builtin = function(ctx)
+          local pane = ctx.pane(0)
+          local running = pane
+            and ((pane.shell_running and not pane.alt_screen) or pane.adhoc_float)
+          if not running and (ctx.jobs or 0) > 0 then
+            running = true
+          end
+          if not running then
+            return nil
+          end
+          return hexe.segment.builtin.spinner({
+            kind = "knight_rider",
+            width = 8,
+            step = 40,
+            hold = 10,
+            colors = { 8, 6, 14, 7, 14, 6, 8 },
+            bg = 0,
             prefix = " ",
             suffix = " ",
           })
@@ -194,14 +236,15 @@ return hexe.setup({
     },
     right = {
       segment({
-        name = "time",
+        name = "date_time",
         priority = 1,
-        builtin = function(_)
-          return hexe.segment.builtin.time({
-            style = hexe.style("status.base"),
-            prefix = " ",
-            suffix = " ",
-          })
+        render = function(_)
+          return {
+            {
+              text = " " .. os.date("%a %d %b  %H:%M") .. " ",
+              style = hexe.style("status.session"),
+            },
+          }
         end,
       }),
     },
@@ -210,24 +253,22 @@ return hexe.setup({
   prompt = {
     left = {
       segment({
-        name = "username",
+        name = "identity",
         priority = 1,
-        builtin = function(_)
-          return hexe.segment.builtin.username({
-            style = hexe.style("prompt.primary"),
-            prefix = " ",
-          })
-        end,
-      }),
-      segment({
-        name = "hostname",
-        priority = 5,
-        builtin = function(_)
-          return hexe.segment.builtin.hostname({
-            style = hexe.style("prompt.primary"),
-            prefix = "@",
-            suffix = " ",
-          })
+        render = function(ctx)
+          local user = ctx.env.USER or ctx.env.LOGNAME or "?"
+          local host = ctx.env.HEXE_PROMPT_HOST or "?"
+          local remote = ctx.env.SSH_CONNECTION
+            or ctx.env.SSH_CLIENT
+            or ctx.env.SSH_TTY
+          local identity = remote and (user .. "@" .. host) or user
+          return {
+            { text = "", style = "fg:0" },
+            {
+              text = identity,
+              style = hexe.style("prompt.identity"),
+            },
+          }
         end,
       }),
       segment({
@@ -235,19 +276,19 @@ return hexe.setup({
         priority = 1,
         builtin = function(_)
           return hexe.segment.builtin.directory({
-            style = hexe.style("prompt.secondary"),
-            prefix = " ",
+            style = hexe.style("prompt.directory"),
+            prefix = { output = "", style = "fg:0 bg:8" },
             suffix = " ",
           })
         end,
       }),
       segment({
         name = "git_branch",
-        priority = 10,
+        priority = 1,
         builtin = function(_)
           return hexe.segment.builtin.git_branch({
-            style = hexe.style("prompt.primary"),
-            prefix = " ",
+            style = hexe.style("prompt.git"),
+            prefix = { output = " ", style = "fg:8 bg:6" },
             suffix = " ",
           })
         end,
@@ -257,52 +298,30 @@ return hexe.setup({
         priority = 15,
         builtin = function(_)
           return hexe.segment.builtin.git_status({
-            style = hexe.style("prompt.primary"),
-            suffix = " ",
-          })
-        end,
-      }),
-      segment({
-        name = "status",
-        priority = 2,
-        builtin = function(_)
-          return hexe.segment.builtin.status({
-            style = hexe.style("prompt.error"),
-            prefix = " ",
-            suffix = " ",
+            style = hexe.style("prompt.git"),
           })
         end,
       }),
       segment({
         name = "character",
         priority = 1,
-        builtin = function(_)
-          return hexe.segment.builtin.character({
-            style = hexe.style("prompt.secondary"),
-            prefix = " ",
-          })
+        render = function(ctx)
+          local style = (ctx.exit_status or 0) == 0
+            and hexe.style("prompt.success")
+            or hexe.style("prompt.error")
+          return {
+            { text = " ", style = "fg:6" },
+            { text = "❯", style = style },
+          }
         end,
       }),
     },
     right = {
       segment({
-        name = "duration",
-        priority = 10,
-        builtin = function(_)
-          return hexe.segment.builtin.duration({
-            style = hexe.style("prompt.secondary"),
-            suffix = " ",
-          })
-        end,
-      }),
-      segment({
-        name = "jobs",
-        priority = 5,
-        builtin = function(_)
-          return hexe.segment.builtin.jobs({
-            style = hexe.style("prompt.primary"),
-            suffix = " ",
-          })
+        name = "empty",
+        priority = 1,
+        render = function(_)
+          return nil
         end,
       }),
     },

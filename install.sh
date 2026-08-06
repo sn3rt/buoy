@@ -150,6 +150,13 @@ if [[ -L "$old_theme_link" ]]; then
   fi
 fi
 
+# Remove the short-lived `hex` launcher name without touching unrelated files.
+old_hexe_launcher="$HOME/.local/bin/hex"
+if [[ -L "$old_hexe_launcher" ]] \
+  && [[ "$(readlink "$old_hexe_launcher")" == "$REPO_ROOT/.local/bin/hex" ]]; then
+  rm "$old_hexe_launcher"
+fi
+
 link_manifest "$REPO_ROOT/profiles/terminal.links"
 if [[ "$profile" == "desktop" ]]; then
   link_manifest "$REPO_ROOT/profiles/desktop.links"

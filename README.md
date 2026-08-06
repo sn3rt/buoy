@@ -178,9 +178,12 @@ not replace `tmx` or change any tmux session. Use `hxe [path]` to create or
 reattach the Hexe session rooted at a directory. Run native Hexe commands with
 `hexe`, for example `hexe session list` and `hexe config check`.
 
-Hexe uses its own prompt only inside Hexe panes. Normal shells, tmux, and Nomad
-continue to use Starship. Hexe sessions and sticky floats survive frontend
-detach/restart; their state lives below `${XDG_STATE_HOME:-~/.local/state}/hexe`.
+Hexe uses a compact Starship-like prompt only inside Hexe panes. Normal shells,
+tmux, and Nomad continue to use Starship. Its bottom bar shows the session and
+focused pane, open tabs, a running-command animation, and date/time. All Hexe
+colors use Buoy's generated terminal palette. Hexe sessions and sticky floats
+survive frontend detach/restart; their state lives below
+`${XDG_STATE_HOME:-~/.local/state}/hexe`.
 
 Pane/tab keys:
 

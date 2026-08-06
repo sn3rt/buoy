@@ -57,6 +57,7 @@ fi
 # Hexe owns the prompt and installs its cwd/environment communication hooks
 # only inside Hexe panes. Normal local, tmux, and Nomad shells keep Starship.
 if [[ -n "${HEXE_PANE_UUID-}" ]] && command -v hexe >/dev/null 2>&1; then
+  export HEXE_PROMPT_HOST="${HOST:-${HOSTNAME:-unknown}}"
   eval "$(hexe shell init zsh)"
 elif command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
