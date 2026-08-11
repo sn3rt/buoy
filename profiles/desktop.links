@@ -1,4 +1,5 @@
 .config/hypr
+.config/systemd/user/hyprlock.service
 .config/quickshell
 .config/yazi-desktop
 .config/hexe

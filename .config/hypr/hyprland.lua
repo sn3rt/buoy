@@ -10,7 +10,7 @@ hl.monitor({
 })
 
 local terminal = "kitty --single-instance --listen-on unix:/tmp/dots-kitty-$(id -u).sock"
-local lock = "pidof hyprlock || hyprlock --immediate-render"
+local lock = "systemctl --user start hyprlock.service"
 local browser = "flatpak run app.zen_browser.zen"
 local mainMod = "SUPER"
 local startup = home .. "/.local/bin/hypr-startup"

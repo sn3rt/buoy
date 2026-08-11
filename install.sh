@@ -160,6 +160,10 @@ fi
 link_manifest "$REPO_ROOT/profiles/terminal.links"
 if [[ "$profile" == "desktop" ]]; then
   link_manifest "$REPO_ROOT/profiles/desktop.links"
+  if command -v systemctl >/dev/null 2>&1 \
+    && systemctl --user show-environment >/dev/null 2>&1; then
+    systemctl --user daemon-reload
+  fi
 fi
 
 # Secrets live outside git

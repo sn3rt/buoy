@@ -1,0 +1,10 @@
+[Unit]
+Description=Hyprland screen lock
+Documentation=https://wiki.hypr.land/Hypr-Ecosystem/hyprlock/
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hyprlock --verbose

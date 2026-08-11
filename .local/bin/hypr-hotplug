@@ -3,13 +3,16 @@ set -euo pipefail
 
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 MODE="reapply"
+PENDING="$RUNTIME_DIR/desktop-hypr-hotplug.pending"
 
 if [[ "${1-}" == "--layout-only" ]]; then
   MODE="layout-only"
 elif [[ "${1-}" == "--reload" ]]; then
   MODE="reload"
+elif [[ "${1-}" == "--unlock" ]]; then
+  MODE="unlock"
 elif [[ $# -gt 0 ]]; then
-  printf 'usage: hypr-hotplug [--layout-only|--reload]\n' >&2
+  printf 'usage: hypr-hotplug [--layout-only|--reload|--unlock]\n' >&2
   exit 2
 fi
 
@@ -25,8 +28,40 @@ log() {
 
 log "hotplug $MODE start"
 
+if [[ "$MODE" == "unlock" ]]; then
+  # Hypridle can emit on_unlock while hyprlock is still tearing down. Do not
+  # reconfigure outputs until the session-lock client has actually exited.
+  for _ in {1..30}; do
+    pgrep -x hyprlock >/dev/null 2>&1 || break
+    sleep 0.1
+  done
+
+  if pgrep -x hyprlock >/dev/null 2>&1; then
+    log "hotplug unlock deferred: hyprlock is still running"
+    exit 0
+  fi
+
+  if [[ ! -e "$PENDING" ]]; then
+    log "hotplug unlock: no deferred monitor work"
+    exit 0
+  fi
+
+  rm -f -- "$PENDING"
+  MODE="reapply"
+  log "hotplug unlock: applying deferred monitor work"
+fi
+
 # Let Hyprland finish adding/removing outputs before applying our layout.
 sleep 2
+
+# Changing output layouts while a Wayland session-lock client owns the
+# surfaces can leave hyprlock visible but unable to receive input. Defer all
+# custom output work until Hypridle reports that the session was unlocked.
+if pgrep -x hyprlock >/dev/null 2>&1; then
+  : >"$PENDING"
+  log "hotplug $MODE deferred while hyprlock is running"
+  exit 0
+fi
 
 if "$HOME/.local/bin/hypr-monitors-auto" >>"$LOG" 2>&1; then
   log "hotplug $MODE layout done"

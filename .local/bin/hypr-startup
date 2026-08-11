@@ -36,7 +36,11 @@ wait_for_monitors() {
 {
   printf 'hypr-startup: starting for instance %s\n' "$INSTANCE"
 
-  run_once hypridle hypridle
+  # Keep Hypridle supervised and journalled. Import the current compositor
+  # environment first so user services connect to the right Wayland instance.
+  systemctl --user import-environment \
+    DISPLAY WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP
+  systemctl --user restart hypridle.service
   run_once udiskie udiskie --no-tray
 
   wait_for_monitors || printf 'hypr-startup: monitor readiness timed out, continuing\n'
