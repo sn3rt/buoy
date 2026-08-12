@@ -424,6 +424,7 @@ local function is_drawer_window(window)
     local class = window.class or ""
     return class == "dropdown"
         or class == "dropdown-yazi"
+        or class == "dropdown-gurk"
         or class == "dropdown-launcher"
         or class == "dropdown-wifi"
 end
@@ -710,6 +711,7 @@ local function toggle_drawer(workspace, class, command)
 end
 
 drawer_rule("dropdown-yazi", "yazi", 0.75, 0.65)
+drawer_rule("dropdown-gurk", "gurk", 0.75, 0.65)
 drawer_rule("dropdown-launcher", "launcher", 0.4, 0.25)
 drawer_rule("dropdown-wifi", "wifi", 0.45, 0.45)
 
@@ -718,6 +720,7 @@ local desktopYazi = "env PATH=" .. desktopPath
     .. " YAZI_CONFIG_HOME=" .. home .. "/.config/yazi-desktop "
     .. home .. "/.local/bin/yazi"
 hl.bind(mainMod .. " + E", toggle_drawer("yazi", "dropdown-yazi", desktopYazi))
+hl.bind(mainMod .. " + G", toggle_drawer("gurk", "dropdown-gurk", "gurk"))
 local toggleLauncher = toggle_drawer("launcher", "dropdown-launcher", "~/.local/bin/desktop-app-launcher")
 hl.bind(mainMod .. " + SPACE", toggleLauncher)
 hl.bind(mainMod .. " + N", toggle_drawer("wifi", "dropdown-wifi", "~/.local/bin/wifi-iwctl-launcher"))
