@@ -36,21 +36,35 @@ PanelWindow {
 
     property var thisMonitor: screen ? Hyprland.monitorFor(screen) : null
 
-    property int activeId: thisMonitor && thisMonitor.activeWorkspace
-        ? thisMonitor.activeWorkspace.id
-        : -1
-
-    property var monitorWorkspaces: {
-        if (!thisMonitor) return [];
-        let mn = thisMonitor.name;
-        return Hyprland.workspaces.values
-            .filter(ws => ws.id > 0 && ws.monitor && ws.monitor.name === mn)
-            .sort((a, b) => a.id - b.id);
+    ScriptModel {
+        id: workspaceModel
+        values: {
+            if (!root.thisMonitor) return [];
+            const monitorName = root.thisMonitor.name;
+            return [...Hyprland.workspaces.values]
+                .filter(workspace => workspace.id > 0
+                    && workspace.monitor
+                    && workspace.monitor.name === monitorName)
+                .sort((left, right) => left.id - right.id);
+        }
     }
 
     Component.onCompleted: {
         Hyprland.refreshMonitors();
         Hyprland.refreshWorkspaces();
+    }
+
+    // Hyprland does not emit events for every action that can invalidate
+    // workspace/monitor state. Keep the model accurate even after a missed
+    // event or a transient event-socket interruption.
+    Timer {
+        interval: 5000
+        running: true
+        repeat: true
+        onTriggered: {
+            Hyprland.refreshMonitors();
+            Hyprland.refreshWorkspaces();
+        }
     }
 
     Item {
@@ -88,13 +102,13 @@ PanelWindow {
                 spacing: 4 * root.scaleFactor
 
                 Repeater {
-                    model: root.monitorWorkspaces
+                    model: workspaceModel
 
                     Rectangle {
                         id: dot
                         required property var modelData
 
-                        readonly property bool isActive: modelData.id === root.activeId
+                        readonly property bool isActive: modelData.active
 
                         width: isActive ? 60 : 30
                         height: 2 * root.scaleFactor

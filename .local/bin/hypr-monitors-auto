@@ -5,6 +5,26 @@ STEP="0.25"
 GAP=0
 MAX_SCALE="2.5"
 
+# Laptop placement relative to the first external display. This default is
+# also used by startup and hotplug; a positional argument overrides one run.
+LAPTOP_POSITION="below"
+if [[ $# -gt 1 ]]; then
+  printf 'usage: hypr-monitors-auto [left|below]\n' >&2
+  exit 2
+fi
+LAPTOP_POSITION="${1:-$LAPTOP_POSITION}"
+case "$LAPTOP_POSITION" in
+  left|below) ;;
+  -h|--help)
+    printf 'usage: hypr-monitors-auto [left|below] (default: below)\n'
+    exit 0
+    ;;
+  *)
+    printf 'usage: hypr-monitors-auto [left|below]\n' >&2
+    exit 2
+    ;;
+esac
+
 # Helper: round to STEP and clamp
 round_step_clamp() {
   local x="$1" min="$2" max="$3"
@@ -90,11 +110,34 @@ mapfile -t EXTERNALS_SORTED < <(
   ' | sort -k1,1 -k2,2 | cut -d" " -f2-
 )
 
-# Place externals above laptop, left-to-right
+# Use logical dimensions, including rotation, for placement.
+logical_size() {
+  local name="$1" scale="$2"
+  local width height transform
+  width="$(mfield "$name" '.width')"
+  height="$(mfield "$name" '.height')"
+  transform="$(mfield "$name" '.transform // 0')"
+  if (( transform % 2 == 1 )); then
+    local swap="$width"
+    width="$height"
+    height="$swap"
+  fi
+  awk -v w="$width" -v h="$height" -v s="$scale" 'BEGIN {
+    if (s <= 0) s = 1;
+    printf "%d %d\n", w/s, h/s;
+  }'
+}
+
+# Place externals left-to-right, either above the laptop or to its right
+# with their bottom edges aligned to the laptop's bottom edge.
 X=0
+BOTTOM=0
+if [[ "$LAPTOP_POSITION" == "left" ]]; then
+  read -r LAPTOP_W_LOG LAPTOP_H_LOG < <(logical_size "$LAPTOP" "$MAIN_SCALE")
+  X=$(( LAPTOP_W_LOG + GAP ))
+  BOTTOM="$LAPTOP_H_LOG"
+fi
 for M in "${EXTERNALS_SORTED[@]}"; do
-  W_PX="$(mfield "$M" '.width')"
-  H_PX="$(mfield "$M" '.height')"
 
   # DPI scaling relative to laptop
   DPI="$(dpi_of "$M")"
@@ -106,10 +149,12 @@ for M in "${EXTERNALS_SORTED[@]}"; do
   fi
 
   # Compute logical sizes USING TARGET SCALE (important!)
-  W_LOG="$(awk -v w="$W_PX" -v s="$SCALE" 'BEGIN { if (s<=0) s=1; printf "%d\n", (w/s); }')"
-  H_LOG="$(awk -v h="$H_PX" -v s="$SCALE" 'BEGIN { if (s<=0) s=1; printf "%d\n", (h/s); }')"
+  read -r W_LOG H_LOG < <(logical_size "$M" "$SCALE")
 
-  Y=$(( -1 * H_LOG - GAP ))
+  Y=$(( BOTTOM - H_LOG ))
+  if [[ "$LAPTOP_POSITION" == "below" ]]; then
+    Y=$(( Y - GAP ))
+  fi
 
   apply_monitor "$M" "${X}x${Y}" "$SCALE"
 

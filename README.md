@@ -59,10 +59,25 @@ Hexe is currently a local-only desktop pilot. `./install-tools.sh --desktop`
 includes it, and `./install-tools.sh hexe` installs only Hexe. The default
 terminal tool list used by Nomad intentionally does not install it yet.
 
-Terminal mode requires `curl`, `tar`, `gzip`, `bzip2`, and `unzip`. Building tmux
-requires `base-devel`, `pkgconf`, `libevent`, and `ncurses` on Arch, or
-`build-essential`, `pkg-config`, `libevent-dev`, and `libncurses-dev` on
-Ubuntu/Debian. Neovim Treesitter parser builds require a C compiler.
+Before downloading anything, terminal mode checks its host dependencies,
+including Zsh, Git, SSH, ripgrep, archive tools, and the tmux build toolchain. If
+anything is missing, it prints one complete `pacman` or `apt` command and stops;
+install those packages and run `install-tools.sh` again. On Ubuntu/Debian the
+tmux dependencies include `bison` (which provides `yacc`), `build-essential`,
+`pkg-config`, `libevent-dev`, and `libncurses-dev`. On Arch they are provided by
+`base-devel`, `pkgconf`, `libevent`, and `ncurses`.
+
+The installer does not silently change the account login shell or log out an SSH
+session. After a successful full-profile install it prints these commands when
+Zsh is not already the login shell:
+
+```bash
+chsh -s "$(command -v zsh)" # use Zsh on future logins
+exec zsh -l                 # replace the current shell now
+```
+
+Do not source `.zshrc` from Bash. The file is Zsh syntax; its guard will point
+you to `exec zsh -l` instead.
 
 To check whether newer pinned tool versions are available:
 
@@ -74,6 +89,125 @@ To check whether newer pinned tool versions are available:
 
 `update-versions.sh` is the controlled update path for terminal pins. Normal
 `pacman -Syu` updates the desktop package set.
+
+## Skillshare
+
+[Skillshare](https://github.com/runkids/skillshare) keeps one skill source and
+syncs it into the directories used by AI coding tools. Buoy tracks that source
+at `~/.config/skillshare/skills` and uses merge mode to expose each skill in:
+
+- `~/.agents/skills` for Codex and other tools that support the universal path
+- `~/.claude/skills` for Claude Code
+
+The default tool install includes the pinned Skillshare CLI. To install only it,
+link the config, audit the source, preview the first sync, and apply it:
+
+```bash
+./install-tools.sh skillshare
+./install.sh
+skillshare audit --global
+skillshare sync --global --dry-run
+skillshare sync --global
+skillshare status --global
+```
+
+Run `skillshare ui --global` for the local web dashboard. Its UI assets are
+downloaded and cached on first launch.
+
+`ss` is an alias for `skillshare`, and Zsh completion is loaded when the binary
+is available. Start a new Codex or Claude session after the first sync if its
+skill list was already loaded.
+
+Two global skills are included initially. Use `$skillshare` in Codex when you
+want the agent to manage or troubleshoot Skillshare. Use `$lua-config-api` when
+designing, converting, or reviewing an embedded-Lua API for a tool you control,
+its plugin discovery convention, or its cross-process API. The Lua skill is not
+for editing third-party configuration such as Neovim. Both skills can also be
+selected implicitly when the request clearly matches their descriptions.
+
+Global skills are already available while working in any project; no per-project
+setup is required for them. For knowledge or workflows that belong to one repo,
+initialize project mode from that repo instead:
+
+```bash
+skillshare init -p --targets universal,claude --mode merge
+skillshare new project-conventions -p --pattern none
+$EDITOR .skillshare/skills/project-conventions/SKILL.md
+```
+
+Add Skillshare's generated target views to the project's `.gitignore`:
+
+```gitignore
+.agents/skills/
+.claude/skills/
+```
+
+Then validate, deploy, and commit the source:
+
+```bash
+skillshare audit -p
+skillshare sync -p --dry-run
+skillshare sync -p
+git add .skillshare .gitignore
+```
+
+Commit `.skillshare/`, which is the project's source of truth, and ignore the
+generated `.agents/skills/` and `.claude/skills/` target views; do not copy a
+global skill into every project. Teammates install Skillshare, run
+`skillshare install -p` when the project config lists remote skills, and then run
+`skillshare sync -p`.
+
+For normal maintenance, run `skillshare check`, `skillshare audit`, and
+`skillshare sync`. To add a newly installed AI tool, run
+`skillshare init --discover` and select the actual tool. Avoid blindly adding all
+detected targets: stale config directories can be detected as tools, and adding
+both `codex` and `universal` can make the same skill appear twice in Codex.
+
+Buoy owns the global source repository and pins the CLI, so do not use global
+`skillshare commit`, `push`, `pull`, or `upgrade` here. Use normal Git for Buoy
+changes. Update the CLI with `./update-versions.sh --write skillshare` followed
+by `./install-tools.sh skillshare`, and refresh the bundled management skill
+from the matching release tag while retaining its Codex compatibility change.
+
+The Lua skill is deliberately vendored and does not update through
+`skillshare check`. Its permitted source revision, and the source revision for
+the bundled Skillshare management skill, are recorded in
+[`.config/skillshare/SOURCES.md`](.config/skillshare/SOURCES.md).
+
+## Monitor layout
+
+`hypr-monitors-auto` defaults to placing the laptop below the external
+display row, aligned left. The optional `left` layout places the laptop to
+the left of the first external display, with their bottom edges aligned.
+External displays continue to the
+right in stable DP/HDMI order; automatic DPI scaling is retained. With only
+the laptop connected, it stays at `(0,0)`.
+
+Apply either layout manually:
+
+```bash
+hypr-monitors-auto left   # laptop left, bottom edges aligned
+hypr-monitors-auto below  # laptop below the external row, aligned left (default)
+```
+
+The argument overrides one run. To change the layout used on startup,
+reconnection, and config reload, edit `LAPTOP_POSITION` near the top of
+`.local/bin/hypr-monitors-auto`.
+
+## Audio output
+
+The desktop profile includes an output switcher for the built-in laptop
+speakers and the ThinkPad USB-C dock:
+
+```bash
+audio-output laptop
+audio-output dock
+audio-output toggle
+audio-output status
+```
+
+Selecting an output also moves current playback streams. WirePlumber remembers
+the selected laptop Speaker profile and default sink across restarts.
 
 ## Temporary remote shell
 

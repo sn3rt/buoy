@@ -3,6 +3,7 @@
 .config/quickshell
 .config/yazi-desktop
 .config/hexe
+.local/bin/audio-output
 .local/bin/capture-action
 .local/bin/capture-menu
 .local/bin/desktop-app-launcher

@@ -10,9 +10,10 @@ set -euo pipefail
 #   ./install-tools.sh --desktop    # install Arch desktop packages and terminal tools
 #   ./install-tools.sh --force      # re-download all terminal tools
 #   ./install-tools.sh nvim         # install one terminal tool
+#   ./install-tools.sh skillshare   # install the Skillshare CLI
 #   ./install-tools.sh hexe         # install Hexe locally (not part of terminal/Nomad defaults)
 #
-# Requires: curl, tar, awk, gzip, bzip2, unzip (unzip only needed for yazi)
+# Checks host dependencies before downloading or installing any pinned tools.
 # Installs to: ${XDG_BIN_HOME:-~/.local/bin}/
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +30,124 @@ usage() {
   printf '%s\n' \
     'usage: install-tools.sh [-t|--terminal|terminal] [--update|-u] [--force|-f] [tool]' \
     '       install-tools.sh [-d|--desktop|desktop] [--update|-u] [--force|-f]' >&2
+}
+
+# ---------------------------------------------------------------------------
+# Host dependencies
+
+append_unique() {
+  local array_name="$1"
+  local value="$2"
+  local existing
+  local -n values="$array_name"
+
+  for existing in "${values[@]}"; do
+    [[ "$existing" == "$value" ]] && return 0
+  done
+  values+=("$value")
+}
+
+add_missing_dependency() {
+  local label="$1"
+  local arch_package="$2"
+  local debian_package="$3"
+
+  append_unique missing_dependencies "$label"
+  case "$package_manager" in
+    pacman) append_unique missing_packages "$arch_package" ;;
+    apt)    append_unique missing_packages "$debian_package" ;;
+  esac
+}
+
+check_command_dependency() {
+  local label="$1"
+  local command_name="$2"
+  local arch_package="$3"
+  local debian_package="$4"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    add_missing_dependency "$label" "$arch_package" "$debian_package"
+  fi
+}
+
+check_tmux_build_dependencies() {
+  if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+    add_missing_dependency "C compiler" base-devel build-essential
+  fi
+  check_command_dependency make make base-devel build-essential
+  check_command_dependency yacc yacc base-devel bison
+
+  if ! command -v pkg-config >/dev/null 2>&1; then
+    add_missing_dependency pkg-config pkgconf pkg-config
+    add_missing_dependency libevent libevent libevent-dev
+    add_missing_dependency ncurses ncurses libncurses-dev
+    return
+  fi
+
+  if ! pkg-config --exists libevent; then
+    add_missing_dependency libevent libevent libevent-dev
+  fi
+  if ! pkg-config --exists ncursesw && ! pkg-config --exists ncurses; then
+    add_missing_dependency ncurses ncurses libncurses-dev
+  fi
+}
+
+check_host_dependencies() {
+  local profile="$1"
+  local only_tool="$2"
+  local package_manager=""
+  local -a missing_dependencies=()
+  local -a missing_packages=()
+
+  if command -v pacman >/dev/null 2>&1; then
+    package_manager="pacman"
+  elif command -v apt-get >/dev/null 2>&1; then
+    package_manager="apt"
+  fi
+
+  # Needed by the installer itself and by the release archive formats.
+  check_command_dependency curl curl curl curl
+  check_command_dependency awk awk gawk gawk
+  check_command_dependency tar tar tar tar
+  check_command_dependency gzip gzip gzip gzip
+  check_command_dependency bzip2 bzip2 bzip2 bzip2
+  check_command_dependency unzip unzip unzip unzip
+
+  # A complete profile should be usable immediately after installation.
+  if [[ -z "$only_tool" ]]; then
+    check_command_dependency zsh zsh zsh zsh
+    check_command_dependency chsh chsh util-linux passwd
+    check_command_dependency git git git git
+    check_command_dependency ssh ssh openssh openssh-client
+    check_command_dependency rg rg ripgrep ripgrep
+    check_tmux_build_dependencies
+  elif [[ "$only_tool" == "tmux" ]]; then
+    check_tmux_build_dependencies
+  fi
+
+  if [[ "$profile" == "desktop" || "$only_tool" == "hexe" ]]; then
+    check_command_dependency sha256sum sha256sum coreutils coreutils
+  fi
+
+  if [[ ${#missing_dependencies[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  printf 'install-tools: missing required dependencies: %s\n' "${missing_dependencies[*]}" >&2
+  if [[ ${#missing_packages[@]} -gt 0 ]]; then
+    printf 'install-tools: install them, then run this script again:\n' >&2
+    case "$package_manager" in
+      pacman)
+        printf '  sudo pacman -S --needed %s\n' "${missing_packages[*]}" >&2
+        ;;
+      apt)
+        printf '  sudo apt install %s\n' "${missing_packages[*]}" >&2
+        ;;
+    esac
+  else
+    printf 'install-tools: install them with your system package manager, then run this script again.\n' >&2
+  fi
+  return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -233,54 +352,12 @@ install_btop() {
   install_bin "$bin" btop
 }
 
-print_tmux_build_dep_install_hint() {
-  if command -v pacman >/dev/null 2>&1; then
-    printf 'install-tools: on Arch Linux install them with:\n' >&2
-    printf '  sudo pacman -S --needed base-devel pkgconf libevent ncurses\n' >&2
-  elif command -v apt-get >/dev/null 2>&1; then
-    printf 'install-tools: on Ubuntu/Debian install them with:\n' >&2
-    printf '  sudo apt install build-essential pkg-config libevent-dev libncurses-dev\n' >&2
-  else
-    printf 'install-tools: install a C compiler, make, pkg-config, libevent, and ncurses with your system package manager.\n' >&2
-  fi
-}
-
-check_tmux_build_deps() {
-  local -a missing=()
-
-  if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
-    missing+=("C compiler")
-  fi
-
-  if ! command -v make >/dev/null 2>&1; then
-    missing+=("make")
-  fi
-
-  if ! command -v pkg-config >/dev/null 2>&1; then
-    missing+=("pkg-config")
-  else
-    if ! pkg-config --exists libevent; then
-      missing+=("libevent")
-    fi
-    if ! pkg-config --exists ncursesw && ! pkg-config --exists ncurses; then
-      missing+=("ncurses")
-    fi
-  fi
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    printf 'install-tools: tmux build dependencies missing: %s\n' "${missing[*]}" >&2
-    print_tmux_build_dep_install_hint
-    return 1
-  fi
-}
-
 install_tmux() {
   local version="$1" arch="$2"
   local asset="tmux-${version}.tar.gz"
   local url="https://github.com/tmux/tmux/releases/download/${version}/${asset}"
   local dir src dest jobs
 
-  check_tmux_build_deps
   dir="$(unpack_release tmux "$url")"
   src="$dir/tmux-${version}"
   dest="$TOOL_ROOT/tmux-${version}-${arch}"
@@ -322,6 +399,20 @@ install_tree_sitter() {
   curl -fsSL -o "$archive" "$url"
   gzip -dc "$archive" >"$bin"
   install_bin "$bin" tree-sitter
+}
+
+install_skillshare() {
+  local version="$1" arch="$2"
+  local skillshare_arch
+  case "$arch" in
+    x86_64)  skillshare_arch="amd64" ;;
+    aarch64) skillshare_arch="arm64" ;;
+  esac
+  local asset="skillshare_${version}_linux_${skillshare_arch}.tar.gz"
+  local url="https://github.com/runkids/skillshare/releases/download/v${version}/${asset}"
+  local dir
+  dir="$(unpack_release skillshare "$url")"
+  install_bin "$dir/skillshare" skillshare
 }
 
 install_hexe() {
@@ -373,6 +464,7 @@ dispatch_install() {
     btop)     install_btop     "$version" "$arch" ;;
     tmux)     install_tmux     "$version" "$arch" ;;
     tree_sitter) install_tree_sitter "$version" "$arch" ;;
+    skillshare) install_skillshare "$version" "$arch" ;;
     hexe)     install_hexe     "$version" "$arch" ;;
     *)
       printf 'install-tools: unknown tool: %s\n' "$tool" >&2
@@ -453,6 +545,9 @@ installed_version() {
       ;;
     starship|fd|atuin|tree_sitter)
       "$bin" --version 2>/dev/null | awk 'NR==1 { print $2 }'
+      ;;
+    skillshare)
+      "$bin" --version 2>/dev/null | awk 'NR == 1 { sub(/^v/, "", $2); print $2 }'
       ;;
     fzf)
       "$bin" --version 2>/dev/null | awk 'NR==1 { print $1 }'
@@ -549,10 +644,21 @@ main() {
     exit 2
   fi
 
+  case "$only_tool" in
+    ""|nvim|starship|fzf|fd|eza|yazi|atuin|btop|tmux|tree_sitter|skillshare|hexe) ;;
+    *)
+      printf 'install-tools: unknown tool: %s\n' "$only_tool" >&2
+      usage
+      exit 2
+      ;;
+  esac
+
   if [[ "$profile" == "desktop" ]]; then
     check_desktop_host
     install_desktop_packages
   fi
+
+  check_host_dependencies "$profile" "$only_tool"
 
   local arch
   arch="$(detect_arch)"
@@ -568,7 +674,7 @@ main() {
     VERSIONS["$key"]="$val"
   done < <(parse_versions "$toml")
 
-  local -a TOOLS=(nvim starship fzf fd eza yazi atuin btop tmux tree_sitter)
+  local -a TOOLS=(nvim starship fzf fd eza yazi atuin btop tmux tree_sitter skillshare)
 
   # Hexe is a local desktop pilot for now. Keep it out of the default
   # terminal list because Nomad runs that list on remote hosts. An explicit
@@ -602,6 +708,22 @@ main() {
   done
 
   log "Done ($profile profile)."
+
+  if [[ -z "$only_tool" ]]; then
+    local zsh_path login_shell
+    zsh_path="$(command -v zsh)"
+    login_shell="${SHELL-}"
+    if command -v getent >/dev/null 2>&1 && [[ -n "${USER-}" ]]; then
+      login_shell="$(getent passwd "$USER" | awk -F: 'NR == 1 { print $7 }')"
+    fi
+
+    if [[ "${login_shell##*/}" != "zsh" ]]; then
+      printf '\nZsh is installed, but it is not this account '\''s login shell. Run:\n'
+      printf '  chsh -s %s\n' "$zsh_path"
+      printf 'Then log out and back in. To enter Zsh in this terminal now, run:\n'
+      printf '  exec %s -l\n' "$zsh_path"
+    fi
+  fi
 }
 
 main "$@"

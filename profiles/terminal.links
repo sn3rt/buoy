@@ -9,6 +9,7 @@
 .config/btop
 .config/kitty
 .config/nvim
+.config/skillshare
 .config/snert-logo
 .config/starship.toml
 .config/starship-tty.toml

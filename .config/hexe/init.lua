@@ -11,6 +11,105 @@ local function focused_float(key)
   end
 end
 
+local function prompt_identity(ctx)
+  local user = ctx.env.USER or ctx.env.LOGNAME or "?"
+  local host = ctx.env.HEXE_PROMPT_HOST or "?"
+  local remote = ctx.env.SSH_CONNECTION
+    or ctx.env.SSH_CLIENT
+    or ctx.env.SSH_TTY
+  return remote and (user .. "@" .. host) or user
+end
+
+local function middle_shorten(text, max_width)
+  if max_width <= 0 then
+    return ""
+  end
+  if #text <= max_width then
+    return text
+  end
+  if max_width <= 3 then
+    return text:sub(1, max_width)
+  end
+
+  local available = max_width - 3
+  local left = math.floor((available + 1) / 2)
+  local right = available - left
+  if right == 0 then
+    return text:sub(1, left) .. "..."
+  end
+  return text:sub(1, left) .. "..." .. text:sub(-right)
+end
+
+local function split_path(path)
+  local components = {}
+  for component in path:gmatch("[^/]+") do
+    table.insert(components, component)
+  end
+  return components
+end
+
+local function adaptive_path(cwd, home, max_width)
+  if max_width <= 0 then
+    return nil
+  end
+
+  local path = cwd or "/"
+  if home and home ~= "" and (path == home or path:sub(1, #home + 1) == home .. "/") then
+    path = "~" .. path:sub(#home + 1)
+  end
+
+  if #path <= max_width then
+    return path
+  end
+
+  local prefix = ""
+  local body = path
+  if path:sub(1, 1) == "~" then
+    prefix = "~"
+    body = path:sub(2)
+  elseif path:sub(1, 1) == "/" then
+    prefix = "/"
+    body = path:sub(2)
+  end
+
+  local components = split_path(body)
+  if #components == 0 then
+    return prefix ~= "" and prefix or "/"
+  end
+
+  local separator = prefix == "/" and "" or "/"
+  if #components == 1 then
+    local head = prefix .. separator
+    return head .. middle_shorten(components[1], max_width - #head)
+  end
+
+  local marker
+  if prefix == "~" then
+    marker = "~/.../"
+  elseif prefix == "/" then
+    marker = "/.../"
+  else
+    marker = ".../"
+  end
+
+  local current = middle_shorten(components[#components], max_width - #marker)
+  local tail = { current }
+  local result = marker .. current
+
+  -- Add the nearest parents while at least one omitted ancestor remains.
+  for index = #components - 1, 2, -1 do
+    local candidate_tail = components[index] .. "/" .. table.concat(tail, "/")
+    local candidate = marker .. candidate_tail
+    if #candidate > max_width then
+      break
+    end
+    table.insert(tail, 1, components[index])
+    result = candidate
+  end
+
+  return result
+end
+
 local layout = hexe.layout("default", {
   enabled = true,
   root = ".",
@@ -254,18 +353,12 @@ return hexe.setup({
     left = {
       segment({
         name = "identity",
-        priority = 1,
+        priority = 10,
         render = function(ctx)
-          local user = ctx.env.USER or ctx.env.LOGNAME or "?"
-          local host = ctx.env.HEXE_PROMPT_HOST or "?"
-          local remote = ctx.env.SSH_CONNECTION
-            or ctx.env.SSH_CLIENT
-            or ctx.env.SSH_TTY
-          local identity = remote and (user .. "@" .. host) or user
           return {
             { text = "", style = "fg:0" },
             {
-              text = identity,
+              text = prompt_identity(ctx),
               style = hexe.style("prompt.identity"),
             },
           }
@@ -273,33 +366,32 @@ return hexe.setup({
       }),
       segment({
         name = "directory",
-        priority = 1,
-        builtin = function(_)
-          return hexe.segment.builtin.directory({
-            style = hexe.style("prompt.directory"),
-            prefix = { output = "", style = "fg:0 bg:8" },
-            suffix = " ",
-          })
-        end,
-      }),
-      segment({
-        name = "git_branch",
-        priority = 1,
-        builtin = function(_)
-          return hexe.segment.builtin.git_branch({
-            style = hexe.style("prompt.git"),
-            prefix = { output = " ", style = "fg:8 bg:6" },
-            suffix = " ",
-          })
-        end,
-      }),
-      segment({
-        name = "git_status",
-        priority = 15,
-        builtin = function(_)
-          return hexe.segment.builtin.git_status({
-            style = hexe.style("prompt.git"),
-          })
+        priority = 2,
+        render = function(ctx)
+          -- Hexe currently budgets UTF-8 byte lengths. Reserve the byte widths
+          -- of the character and decorations so they cannot be pushed out.
+          local half_width = math.floor((ctx.terminal_width or 80) / 2)
+          local character_width = #" " + #"❯"
+          local decoration_width = #"" + 2
+          local identity_width = #"" + #prompt_identity(ctx)
+          local with_identity = half_width
+            - character_width
+            - decoration_width
+            - identity_width
+          local path_width = with_identity >= 8
+            and with_identity
+            or half_width - character_width - decoration_width
+          local path = adaptive_path(ctx.cwd, ctx.home, path_width)
+          if not path or path == "" then
+            return nil
+          end
+          return {
+            { text = "", style = "fg:0 bg:8" },
+            {
+              text = " " .. path .. " ",
+              style = hexe.style("prompt.directory"),
+            },
+          }
         end,
       }),
       segment({
@@ -318,10 +410,24 @@ return hexe.setup({
     },
     right = {
       segment({
-        name = "empty",
+        name = "git_branch",
         priority = 1,
-        render = function(_)
-          return nil
+        builtin = function(_)
+          return hexe.segment.builtin.git_branch({
+            style = hexe.style("prompt.git"),
+            prefix = { output = "", style = "fg:6" },
+            suffix = " ",
+          })
+        end,
+      }),
+      segment({
+        name = "git_status",
+        priority = 15,
+        builtin = function(_)
+          return hexe.segment.builtin.git_status({
+            style = hexe.style("prompt.git"),
+            suffix = " ",
+          })
         end,
       }),
     },

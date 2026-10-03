@@ -1,3 +1,8 @@
+if [ -z "${ZSH_VERSION-}" ]; then
+  printf '%s\n' '.zshrc requires Zsh; from Bash, run: exec zsh -l' >&2
+  return 0 2>/dev/null || exit 1
+fi
+
 # Set directory for zinit and plugins
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 
@@ -43,6 +48,18 @@ zinit light joshskidmore/zsh-fzf-history-search
 # Load completions
 autoload -Uz compinit
 compinit
+
+if command -v skillshare >/dev/null 2>&1; then
+  alias ss='skillshare'
+
+  # Skillshare emits an autoload-style completion that calls _arguments.
+  # Evaluate it only after Zsh has entered completion context.
+  _skillshare_bootstrap() {
+    eval "$(command skillshare completion zsh)"
+    compdef _skillshare skillshare ss
+  }
+  compdef _skillshare_bootstrap skillshare ss
+fi
 
 if [[ "${TERM-}" == "linux" ]] \
   || { [[ -n "${XDG_VTNR-}" ]] \

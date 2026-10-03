@@ -48,6 +48,12 @@ terminal_payload() {
 
   while IFS= read -r item || [[ -n "$item" ]]; do
     [[ -z "$item" || "$item" == \#* ]] && continue
+
+    # Its global targets use ~/.agents and ~/.claude. Sending this config into
+    # a temporary Nomad environment could therefore modify the remote account's
+    # persistent home instead of the temporary payload.
+    [[ "$item" == ".config/skillshare" ]] && continue
+
     tracked="$(git -C "$repo_root" ls-files -- "$item")"
     if [[ -z "$tracked" ]]; then
       printf 'nomad: terminal payload entry is not tracked: %s\n' "$item" >&2
